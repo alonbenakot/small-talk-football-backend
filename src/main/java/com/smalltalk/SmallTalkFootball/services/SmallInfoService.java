@@ -2,6 +2,9 @@ package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
 import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
+import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
+import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
+import com.smalltalk.SmallTalkFootball.system.messages.ErrorMessages;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,16 +17,22 @@ public class SmallInfoService {
 
     private final SmallInfoRepository repository;
 
-    public SmallInfo addInfo(SmallInfo info) {
-        return repository.save(info);
+    public SmallTalkResponse<SmallInfo> addInfo(SmallInfo info) {
+        return new SmallTalkResponse<>(repository.save(info));
     }
 
-    public List<SmallInfo> getAllInfos() {
-        return repository.findAll();
+    public SmallTalkResponse<List<SmallInfo>> getAllInfos() {
+        return new SmallTalkResponse<>(repository.findAll());
     }
 
-    public SmallInfo getOneInfo(String infoId) throws Exception {
+    public SmallTalkResponse<SmallInfo> getOneInfo(String infoId) throws SmallTalkException {
         Optional<SmallInfo> optionalInfo = repository.findById(infoId);
-        return optionalInfo.orElseThrow(() -> new Exception("No small info was found."));
+        SmallInfo info = optionalInfo.orElseThrow(() -> new SmallTalkException(ErrorMessages.NO_INFO_FOUND));
+        return new SmallTalkResponse<>(info);
+    }
+
+    public void deleteSmallInfo(String id) throws SmallTalkException {
+        repository.findById(id).orElseThrow(() -> new SmallTalkException(ErrorMessages.NO_INFO_TO_DELETE));
+        repository.deleteById(id);
     }
 }

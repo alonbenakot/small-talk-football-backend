@@ -1,30 +1,30 @@
 package com.smalltalk.SmallTalkFootball.entities;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document
 @Data
-@AllArgsConstructor
+@NoArgsConstructor
 public class SmallInfo {
 
     @Id
-    public String id;
+    private String id;
 
-    public String title;
+    private String title;
 
-    public String subtitle;
+    private String subtitle;
 
-    public String text;
+    private String text;
 
-    public InfoCategory InfoCategory;
+    private InfoCategory infoCategory;
 
-    public SmallInfo(String title, String subtitle, String text, com.smalltalk.SmallTalkFootball.entities.InfoCategory infoCategory) {
+    public SmallInfo(String title, String subtitle, String text, InfoCategory infoCategory) {
         this.title = title;
         this.subtitle = subtitle;
         this.text = text;
-        InfoCategory = infoCategory;
+        this.infoCategory = infoCategory;
     }
 }
