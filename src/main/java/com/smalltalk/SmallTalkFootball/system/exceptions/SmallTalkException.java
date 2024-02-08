@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.exceptions;
+package com.smalltalk.SmallTalkFootball.system.exceptions;
 
 public class SmallTalkException extends Exception{
 
