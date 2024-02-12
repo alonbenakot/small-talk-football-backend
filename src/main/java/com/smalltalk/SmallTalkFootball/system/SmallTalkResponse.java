@@ -1,7 +1,9 @@
 package com.smalltalk.SmallTalkFootball.system;
 
 import com.smalltalk.SmallTalkFootball.system.messages.SystemMessage;
+import lombok.Getter;
 
+@Getter
 public class SmallTalkResponse<T> {
 
     private T data;

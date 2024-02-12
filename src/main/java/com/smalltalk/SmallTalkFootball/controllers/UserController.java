@@ -23,7 +23,7 @@ public class UserController {
     }
 
     @GetMapping
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<User> login(@RequestParam String email, @RequestParam String password) throws UserException {
         return service.login(email, password);
     }

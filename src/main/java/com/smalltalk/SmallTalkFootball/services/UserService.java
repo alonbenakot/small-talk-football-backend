@@ -4,7 +4,7 @@ import com.smalltalk.SmallTalkFootball.entities.User;
 import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.UserException;
-import com.smalltalk.SmallTalkFootball.system.messages.ErrorMessages;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,16 +16,28 @@ public class UserService {
 
     public SmallTalkResponse<User> addUser(User user) throws UserException {
         if (repository.findByEmail(user.getEmail()).isPresent()) {
-            throw new UserException(ErrorMessages.MEMBER_WITH_EMAIL_EXISTS);
+            throw new UserException(Messages.MEMBER_WITH_EMAIL_EXISTS);
         }
-        String alertMsg = "Welcome to the team, " + user.getFirstName() + "!";
-        return new SmallTalkResponse<>(repository.save(user), alertMsg);
+        String alertMsg = Messages.WELCOME_MEMBER.formatted(user.getFirstName());
+        SmallTalkResponse<User> response = new SmallTalkResponse<>(repository.save(user), alertMsg);
+
+        return processResponse(response);
     }
+
 
     public SmallTalkResponse<User> login(String email, String password) throws UserException {
         User user = repository.findByEmailAndPassword(email, password)
-                .orElseThrow(() -> new UserException(ErrorMessages.INCORRECT_EMAIL_OR_PASSWORD));
+                .orElseThrow(() -> new UserException(Messages.INCORRECT_EMAIL_OR_PASSWORD));
 
-        return new SmallTalkResponse<>(user);
+        SmallTalkResponse<User> response = new SmallTalkResponse<>(user);
+
+        return processResponse(response);
+    }
+
+    private static SmallTalkResponse<User> processResponse(SmallTalkResponse<User> response) {
+        response.getData().setPassword(null);
+        response.setJwt("fhiueh3osnd3551uioqheo56qheof3425534gfwrg21q6512gh");
+        return response;
     }
 }
+
