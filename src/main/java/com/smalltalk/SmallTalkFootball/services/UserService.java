@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.UserException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
+import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -34,9 +35,9 @@ public class UserService {
         return processResponse(response);
     }
 
-    private static SmallTalkResponse<User> processResponse(SmallTalkResponse<User> response) {
+    private SmallTalkResponse<User> processResponse(SmallTalkResponse<User> response) {
+        response.setJwt(JwtUtil.generateToken(response.getData()));
         response.getData().setPassword(null);
-        response.setJwt("fhiueh3osnd3551uioqheo56qheof3425534gfwrg21q6512gh");
         return response;
     }
 }
