@@ -4,7 +4,7 @@ import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
 import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
-import com.smalltalk.SmallTalkFootball.system.messages.ErrorMessages;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,12 +27,12 @@ public class SmallInfoService {
 
     public SmallTalkResponse<SmallInfo> getOneInfo(String infoId) throws SmallTalkException {
         Optional<SmallInfo> optionalInfo = repository.findById(infoId);
-        SmallInfo info = optionalInfo.orElseThrow(() -> new SmallTalkException(ErrorMessages.NO_INFO_FOUND));
+        SmallInfo info = optionalInfo.orElseThrow(() -> new SmallTalkException(Messages.NO_INFO_FOUND));
         return new SmallTalkResponse<>(info);
     }
 
     public void deleteSmallInfo(String id) throws SmallTalkException {
-        repository.findById(id).orElseThrow(() -> new SmallTalkException(ErrorMessages.NO_INFO_TO_DELETE));
+        repository.findById(id).orElseThrow(() -> new SmallTalkException(Messages.NO_INFO_TO_DELETE));
         repository.deleteById(id);
     }
 }
