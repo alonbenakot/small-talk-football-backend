@@ -22,8 +22,8 @@ public class UserService {
         if (repository.findByEmail(user.getEmail()).isPresent()) {
             throw new UserException(Messages.MEMBER_WITH_EMAIL_EXISTS);
         }
-        String alertMsg = Messages.WELCOME_MEMBER.formatted(user.getFirstName());
-        SmallTalkResponse<User> response = new SmallTalkResponse<>(repository.save(user), alertMsg);
+        String msg = Messages.WELCOME_MEMBER.formatted(user.getFirstName());
+        SmallTalkResponse<User> response = new SmallTalkResponse<>(repository.save(user), msg);
 
         return processResponse(response);
     }
@@ -37,8 +37,8 @@ public class UserService {
     public SmallTalkResponse<User> login(String email, String password) throws UserException {
         User user = repository.findByEmailAndPassword(email, password)
                 .orElseThrow(() -> new UserException(Messages.INCORRECT_EMAIL_OR_PASSWORD));
-
-        SmallTalkResponse<User> response = new SmallTalkResponse<>(user);
+        String msg = Messages.MEMBER_LOGIN.formatted(user.getFirstName());
+        SmallTalkResponse<User> response = new SmallTalkResponse<>(user,msg);
 
         return processResponse(response);
     }

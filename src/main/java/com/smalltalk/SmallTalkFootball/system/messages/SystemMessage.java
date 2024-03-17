@@ -6,20 +6,20 @@ import lombok.Getter;
 public class SystemMessage {
 
     private String messageText;
-    private boolean isError;
+    private boolean error;
 
     public SystemMessage() {
         this.messageText = null;
-        this.isError = false;
+        this.error = false;
     }
 
     public SystemMessage(String messageText) {
         this.messageText = messageText;
-        this.isError = true;
+        this.error = true;
     }
 
-    public SystemMessage(String messageText, boolean isError) {
+    public SystemMessage(String messageText, boolean error) {
         this.messageText = messageText;
-        this.isError = isError;
+        this.error = error;
     }
 }
