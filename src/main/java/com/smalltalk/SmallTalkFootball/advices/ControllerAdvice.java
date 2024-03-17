@@ -12,6 +12,6 @@ public class ControllerAdvice {
     @ExceptionHandler(value = Exception.class)
     @ResponseStatus(HttpStatus.NON_AUTHORITATIVE_INFORMATION)
     public SmallTalkResponse exceptionHandler(Exception e) {
-        return new SmallTalkResponse<>(e.getMessage());
+        return new SmallTalkResponse<>(e.getMessage(), HttpStatus.NON_AUTHORITATIVE_INFORMATION.value());
     }
 }

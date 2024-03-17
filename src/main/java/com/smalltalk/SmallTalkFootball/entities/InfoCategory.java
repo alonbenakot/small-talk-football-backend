@@ -2,5 +2,6 @@ package com.smalltalk.SmallTalkFootball.entities;
 
 
 public enum InfoCategory {
-    INTRO, POSITIONS, RULES, LEAGUES
+    INTRO, POSITIONS, RULES, LEAGUES;
+
 }

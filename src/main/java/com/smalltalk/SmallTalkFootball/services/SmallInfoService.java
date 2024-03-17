@@ -1,13 +1,17 @@
 package com.smalltalk.SmallTalkFootball.services;
 
+import com.smalltalk.SmallTalkFootball.entities.InfoCategory;
 import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
 import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
+import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,12 +21,17 @@ public class SmallInfoService {
 
     private final SmallInfoRepository repository;
 
-    public SmallTalkResponse<SmallInfo> addInfo(SmallInfo info) {
+    public SmallTalkResponse<SmallInfo> addInfo(SmallInfo info) throws InfoAlreadyExistsException {
+        if (repository.findByTitle(info.getTitle()).isPresent()) {
+            throw new InfoAlreadyExistsException(Messages.INFO_ALREADY_EXISTS);
+        }
         return new SmallTalkResponse<>(repository.save(info));
     }
 
     public SmallTalkResponse<List<SmallInfo>> getAllInfos() {
-        return new SmallTalkResponse<>(repository.findAll());
+        List<SmallInfo> infos = repository.findAll();
+        infos.sort(Comparator.comparing(SmallInfo::getInfoCategory));
+        return new SmallTalkResponse<>(infos);
     }
 
     public SmallTalkResponse<SmallInfo> getOneInfo(String infoId) throws SmallTalkException {
@@ -35,4 +44,10 @@ public class SmallInfoService {
         repository.findById(id).orElseThrow(() -> new SmallTalkException(Messages.NO_INFO_TO_DELETE));
         repository.deleteById(id);
     }
+
+    public SmallTalkResponse<List<InfoCategory>> getCategories() {
+        List<InfoCategory> categories = Arrays.asList(InfoCategory.values());
+        return new SmallTalkResponse<>(categories);
+    }
+
 }

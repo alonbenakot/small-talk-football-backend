@@ -1,8 +1,10 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
+import com.smalltalk.SmallTalkFootball.entities.InfoCategory;
 import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
 import com.smalltalk.SmallTalkFootball.services.SmallInfoService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
+import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,13 +15,14 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("small-infos")
+@CrossOrigin(origins = "http://localhost:4200")
 public class SmallInfoController {
 
     private final SmallInfoService service;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) {
+    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) throws InfoAlreadyExistsException {
         return service.addInfo(smallInfo);
     }
 
@@ -27,6 +30,12 @@ public class SmallInfoController {
     @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<List<SmallInfo>> getAllInfos() {
         return service.getAllInfos();
+    }
+
+    @GetMapping("/categories")
+    @ResponseStatus(HttpStatus.OK)
+    public SmallTalkResponse<List<InfoCategory>> getCategories() {
+        return service.getCategories();
     }
 
     @GetMapping("/{id}")

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @AllArgsConstructor
 @RequestMapping("users")
+@CrossOrigin(origins = "http://localhost:4200")
 public class UserController {
 
     private final UserService service;
@@ -19,12 +20,16 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SmallTalkResponse<User> signUp(@RequestBody User user) throws SmallTalkException {
-        return service.addUser(user);
+        SmallTalkResponse<User> response = service.addUser(user);
+        response.setStatusCode(HttpStatus.CREATED.value());
+        return response;
     }
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<User> login(@RequestParam String email, @RequestParam String password) throws UserException {
-        return service.login(email, password);
+        SmallTalkResponse<User> response = service.login(email, password);
+        response.setStatusCode(HttpStatus.OK.value());
+        return response;
     }
 }
