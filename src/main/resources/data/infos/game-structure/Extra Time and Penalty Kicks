@@ -1,0 +1,15 @@
+{
+    "title": "Extra Time and Penalty Kicks",
+    "subtitle": "How matches are decided in tournaments through extra time and penalties",
+    "infoTexts": [
+        {
+            "text": "When a soccer match ends in a draw during knockout tournaments, it’s time for some extra drama. First up is extra time, where the game goes into an additional 30 minutes—15 minutes each half—to give teams another shot at breaking the tie. If the score is still level after extra time, the match heads to penalty kicks, which are like a high-stakes shootout between the players and the goalkeeper. Each team gets five penalty attempts, and if it’s still tied, the shootout continues with sudden-death rounds until one team scores and the other doesn’t. Extra time and penalties add a thrilling edge to knockout matches, testing both endurance and composure. It’s a dramatic conclusion where nerves are as crucial as skill.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "In football, when a knockout match ends in a draw, the drama escalates with extra time and, if necessary, penalty kicks. Extra time involves an additional 30 minutes—split into two 15-minute halves—to give teams another chance to secure a victory. Should the score remain level after extra time, the match proceeds to the penalty shootout, a nerve-wracking climax where teams take turns with spot kicks. Each team has five penalties, and if it’s still tied, the shootout continues with sudden-death penalties until one side prevails. Extra time and penalties bring a thrilling and high-pressure end to the match, where both physical stamina and mental fortitude are put to the ultimate test. It’s the final battleground where every kick counts.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "GAME_STRUCTURE"
+}

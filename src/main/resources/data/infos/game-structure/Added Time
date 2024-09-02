@@ -1,0 +1,15 @@
+{
+    "title": "Added Time: The Mystery Behind Stoppage Time",
+    "subtitle": "Explanation of added time, its calculation, and its significance in matches",
+    "infoTexts": [
+        {
+            "text": "Added time, often known as stoppage time, is the final twist in a soccer match, tacked on at the end of each half to account for delays and interruptions. This extra time compensates for things like injuries, substitutions, and general stoppages that slow down the game. The referee, in consultation with the fourth official, decides how much added time is needed, which can vary from a minute or two to several, depending on the game’s events. It’s crucial because it can be the stage for dramatic last-minute goals or pivotal moments. For fans and players alike, added time is a nerve-racking period where the outcome of the match can change in the blink of an eye. Essentially, it’s the final chapter where the clock keeps ticking and anything can happen.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Added time, or stoppage time, is the intriguing final act of a football match, appended to the end of each half to cover for delays. This additional period accounts for stoppages such as injuries, substitutions, and any other interruptions that occur during play. The referee, often with input from the fourth official, calculates how much added time is required, which can range from a few minutes to a bit more, depending on the game’s disruptions. It’s a critical juncture, as it’s when matches can be turned on their head by last-minute goals or decisive plays. For both players and spectators, added time is a suspenseful countdown where the game’s fate can be sealed or altered. It’s the final flourish where the clock ticks on and the drama unfolds.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "GAME_STRUCTURE"
+}

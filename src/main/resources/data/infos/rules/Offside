@@ -1,0 +1,15 @@
+{
+    "title": "Offside",
+    "subtitle": "Detailed explanation of the offside rule, including common misconceptions and examples.",
+    "infoTexts": [
+        {
+            "text": "The offside rule in soccer might seem like a puzzle, but it’s actually quite logical once you break it down. Simply put, a player is offside if they are closer to the opponent’s goal line than both the ball and the second-to-last defender when the ball is passed to them. This rule ensures players can’t just camp out by the opponent’s goal waiting for a pass, which keeps the game fair and dynamic. Common misconceptions include thinking that a player is offside if they’re merely in an advanced position—no, they need to be actively involved in the play. For example, if a player receives the ball and they’re behind the defense when the ball is played, they’re offside. It’s a rule designed to encourage teamwork and skill, making every pass and play a strategic move.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "The offside rule in football is one of the trickier aspects to grasp, but it’s quite straightforward once you get the hang of it. A player is considered offside if they’re nearer to the opponent’s goal line than both the ball and the second-to-last defender at the moment the ball is played to them. This prevents players from simply lurking by the goal, which keeps the game exciting and competitive. A common myth is that a player is offside if they’re just in an advanced position—actually, they must be actively participating in the play. For instance, if a player is in front of the defenders when the ball is passed to them, they’re offside. It’s a rule that ensures the game remains fair and encourages clever play and teamwork.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "RULES"
+}

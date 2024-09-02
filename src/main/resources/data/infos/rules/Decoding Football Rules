@@ -1,0 +1,15 @@
+{
+    "title": "Decoding Football Rules: A Beginner's Guide",
+    "subtitle": "A comprehensive breakdown of the basic rules and gameplay principles in football.",
+    "infoTexts": [
+        {
+            "text": "Soccer is a game with straightforward rules that can seem a bit bewildering at first. The basics are simple: two teams of eleven players each try to score goals by getting the ball into the opponent’s net. Each match is played in two halves of 45 minutes, with a brief halftime break to catch your breath and maybe grab a snack. There are no timeouts, and play is continuous unless the referee blows the whistle for a foul or an out-of-bounds situation. Offside rules ensure that players can’t just hang out near the opponent’s goal waiting for a pass. With a bit of practice, you'll find that the beauty of soccer lies in its elegant simplicity and the thrilling moments that make every game exciting.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Football might seem a bit mystifying when you first encounter its rules, but it’s rather straightforward once you get the hang of it. The fundamental aim is clear: two teams of eleven players each aim to score goals by propelling the ball into the opposing team’s net. Matches consist of two halves, each lasting 45 minutes, with a brief intermission for a cuppa and a chat. The game flows continuously, with stoppages only for fouls or when the ball goes out of play. The offside rule ensures that players can’t simply loiter near the opponent’s goal awaiting a pass. Once you grasp these basics, you’ll appreciate how football’s elegance and excitement are woven into its simple yet effective rules.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "RULES"
+}

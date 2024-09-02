@@ -6,6 +6,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.List;
+
 @Document
 @Data
 @NoArgsConstructor
@@ -19,14 +21,14 @@ public class SmallInfo {
 
     private String subtitle;
 
-    private String text;
+    private List<InfoText> infoTexts;
 
     private InfoCategory infoCategory;
 
-    public SmallInfo(String title, String subtitle, String text, InfoCategory infoCategory) {
+    public SmallInfo(String title, String subtitle, List<InfoText> infoTexts, InfoCategory infoCategory) {
         this.title = title;
         this.subtitle = subtitle;
-        this.text = text;
+        this.infoTexts = infoTexts;
         this.infoCategory = infoCategory;
     }
 }

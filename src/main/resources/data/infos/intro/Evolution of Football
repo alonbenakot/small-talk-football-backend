@@ -1,0 +1,15 @@
+{
+    "title": "Evolution of Football",
+    "subtitle": "Tracing the historical development of football from its earliest forms to the present day",
+    "infoTexts": [
+        {
+            "text": "Soccer's journey from ancient times to the modern era is like a wild ride through history. It all started way back when, with various civilizations kicking around some version of a ball for fun — think ancient China’s \"cuju\" or medieval Europe’s chaotic street games. Fast forward to the 19th century, and the sport began to take shape in England, where they finally agreed on some rules, turning the chaos into the organized game we know today. As it spread across the globe, each country added its own twist, making soccer a truly international phenomenon. In the modern era, soccer has become more than just a game; it's a global spectacle, with players like Messi and Ronaldo becoming household names and the World Cup capturing the imagination of billions. From ancient fields to high-tech stadiums, soccer's evolution is a testament to its enduring appeal and ability to unite people across cultures.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "The evolution of football is a fascinating tale that begins long before the polished pitches and roaring crowds of today. Ancient civilizations, like the Chinese with their game of \"cuju,\" and the Greeks and Romans with their own ball-kicking antics, all had a hand in the sport's early beginnings. Fast forward to 19th-century England, where the unruly village games were tamed and transformed into the football we recognize now—complete with rules and proper goals. As the sport spread across the globe, each country added its own unique flavor, making football a worldwide obsession. Today, from local Sunday leagues to the grand stage of the World Cup, football has become a global phenomenon, uniting people across continents with the simple joy of kicking a ball. It's a game with humble beginnings, yet its impact is nothing short of monumental—truly, football is the world’s favorite pastime.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "INTRO"
+}
