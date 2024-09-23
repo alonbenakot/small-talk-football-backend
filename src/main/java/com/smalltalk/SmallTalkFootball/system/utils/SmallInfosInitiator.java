@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -23,7 +24,7 @@ public class SmallInfosInitiator {
 
         } catch (IOException e) {
             e.printStackTrace();
-            return List.of();
+            return Collections.emptyList();
         }
     }
 

@@ -1,0 +1,15 @@
+{
+    "title": "Matchday Experience: From Pre-game Rituals to Post-match Celebrations",
+    "subtitle": "Typical activities and rituals fans engage in before, during, and after matches",
+    "infoTexts": [
+        {
+            "text": "For many soccer fans, matchday is a full-blown event, starting hours before the game even kicks off. Tailgating in the stadium parking lot, grilling up burgers, and getting hyped with friends is practically a tradition. Inside the stadium, chants and clapping keep the energy high, while the roar of the crowd intensifies the excitement when the players hit the field. During the match, supporters are glued to every play, alternating between cheering, gasping, and groaning as the game unfolds. Once the final whistle blows, fans either celebrate in joyous camaraderie or dissect the game over post-match drinks. Win or lose, the day doesn't end when the game does — it’s a community experience that lasts long after the final score.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "A typical matchday for a British football fan is a ritual steeped in tradition and a dash of superstition. It often starts at the local pub, where pre-match pints and banter set the tone for the day ahead. Walking to the stadium in a sea of fellow supporters, scarves raised high, adds to the collective anticipation. Inside, the chants begin, echoing through the stands, with every fan knowing exactly when to belt out their team's anthem. As the game plays out, the crowd swings between jubilation and frustration, depending on the scoreline. After the final whistle, fans may return to the pub, where celebrations or post-mortems ensue over another round of drinks. Regardless of the result, the matchday experience is always a rollercoaster of emotions and a true embodiment of football passion.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "FAN_CULTURE"
+}

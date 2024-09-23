@@ -53,7 +53,7 @@ public class SmallInfoService {
     }
 
     public SmallTalkResponse<List<SmallInfo>> initSmallInfos() {
-//        repository.deleteAll();
+        repository.deleteAll();
         List<SmallInfo> generatedInfos = SmallInfosInitiator.init();
         return new SmallTalkResponse<>(repository.saveAll(generatedInfos));
     }
