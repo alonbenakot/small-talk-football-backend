@@ -49,4 +49,10 @@ public class SmallInfoController {
     public void deleteSmallInfo(@PathVariable String id) throws SmallTalkException {
         service.deleteSmallInfo(id);
     }
+
+    @PostMapping("/init")
+    @ResponseStatus(HttpStatus.OK)
+    public void initSmallInfosDataBase() {
+        service.initSmallInfos();
+    }
 }

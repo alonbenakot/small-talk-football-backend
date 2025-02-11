@@ -1,0 +1,15 @@
+{
+    "title": "Injury Time: Dealing with Injuries During Matches",
+    "subtitle": "Protocols and procedures for handling injuries and substitutions during live play",
+    "infoTexts": [
+        {
+            "text": "Injury time is like a mini-drama within the match, as the game pauses to handle injuries and make necessary substitutions. When a player goes down with an injury, the referee stops the clock, allowing medical staff to rush onto the field and assess the situation. Depending on the severity, the injured player might need to be substituted, and the team can bring in a replacement, which can also be a tactical decision. During these pauses, the referee adds the time lost to injury time at the end of each half, so the game’s flow isn’t completely disrupted. This period is crucial for ensuring player safety and maintaining the game’s integrity. Injury time helps balance the scales, ensuring that the match continues fairly despite the interruptions",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Injury time is the moment when the game pauses to address injuries and handle substitutions, adding a layer of intrigue to the match. When a player suffers an injury, the referee halts the action, allowing medical personnel to attend to the player on the pitch. Should the injury be serious, the player may be substituted, and a replacement is brought on, which can also impact tactical strategies. The time lost during these interruptions is then accounted for as added time at the end of each half, ensuring the match's flow is maintained. This procedure is vital for player safety and helps preserve the game's fairness. Injury time provides a necessary pause, balancing the match and keeping the action fair and competitive despite the stoppages.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "GAME_STRUCTURE"
+}

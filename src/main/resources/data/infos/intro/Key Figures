@@ -1,0 +1,15 @@
+{
+    "title": "Football Legends",
+    "subtitle": "Profiles of influential players, coaches, and figures who have left a lasting legacy on the sport.",
+    "infoTexts": [
+        {
+            "text": "Soccer has been graced by some truly legendary figures who’ve made a massive impact on the sport. Think of Pelé, whose dazzling play and three World Cup wins turned him into a global icon, and Diego Maradona, whose \"Hand of God\" and \"Goal of the Century\" will forever be etched in soccer history. In more recent times, Lionel Messi and Cristiano Ronaldo have redefined the limits of skill and achievement, making the game look like pure magic. Coaches like Sir Alex Ferguson have not only led their teams to victory but have also become legends in their own right through their tactical genius and leadership. These figures, with their extraordinary talents and achievements, have shaped the sport and inspired countless fans and players around the world. Soccer is not just a game because of these legends; it's a global spectacle that celebrates human brilliance and creativity.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Football has seen some remarkable figures whose influence extends far beyond the pitch. Pelé, for instance, captivated fans with his flair and scoring prowess, earning his place as a global icon through his three World Cup victories. Then there’s Diego Maradona, whose magical feet and controversial \"Hand of God\" goal at the 1986 World Cup are forever part of football lore. In the modern era, Lionel Messi and Cristiano Ronaldo have pushed the boundaries of what’s possible on the field, dazzling with their extraordinary skills and consistent brilliance. Coaches like Sir Alex Ferguson have not only crafted winning teams but also left an indelible mark on the sport through their strategic insights and managerial prowess. These legends have transformed football from a game into a cultural phenomenon, inspiring awe and admiration across the globe.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "INTRO"
+}

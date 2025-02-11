@@ -7,6 +7,8 @@ import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
+//import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosInitiator;
+import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosInitiator;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +50,12 @@ public class SmallInfoService {
     public SmallTalkResponse<List<InfoCategory>> getCategories() {
         List<InfoCategory> categories = Arrays.asList(InfoCategory.values());
         return new SmallTalkResponse<>(categories);
+    }
+
+    public SmallTalkResponse<List<SmallInfo>> initSmallInfos() {
+        repository.deleteAll();
+        List<SmallInfo> generatedInfos = SmallInfosInitiator.init();
+        return new SmallTalkResponse<>(repository.saveAll(generatedInfos));
     }
 
 }

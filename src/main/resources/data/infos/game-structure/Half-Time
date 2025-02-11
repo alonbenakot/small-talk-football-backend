@@ -1,0 +1,15 @@
+{
+    "title": "Half-Time",
+    "subtitle": "Importance of half-time breaks, strategies teams use, and player recovery",
+    "infoTexts": [
+        {
+            "text": "Half-time in soccer is like the ultimate pit stop, giving teams a chance to catch their breath, regroup, and strategize for the second half. This 15-minute break is crucial for players to rest, rehydrate, and get a quick pep talk from their coach. Teams use this time to analyze the first half, adjust tactics, and make any necessary substitutions to change the game’s momentum. It’s also a moment for players to refuel, grab a snack, and get any minor injuries attended to. The half-time break can be a game-changer, as it often sets the stage for tactical shifts and fresh bursts of energy in the second half. Essentially, it’s a crucial intermission that can turn the tide of the match and set the tone for the remainder of the game.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Half-time in football is akin to a strategic pause, providing teams with a valuable opportunity to regroup, refresh, and recalibrate their approach. This 15-minute interval is vital for players to recover, rehydrate, and receive tactical advice from their manager. During this time, teams assess their performance, make tactical adjustments, and possibly introduce substitutions to alter the course of the match. Players use the break to catch their breath, perhaps enjoy a quick snack, and tend to any niggling injuries. The half-time break often proves pivotal, as it offers a chance to reassess strategies and inject a new burst of energy into the second half. In essence, it’s a crucial pause that can significantly impact the game’s outcome.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "GAME_STRUCTURE"
+}

@@ -1,0 +1,15 @@
+{
+    "title": "Penalty Kicks Unveiled",
+    "subtitle": "Rules and tactics surrounding penalty kicks, including how they're awarded and taken",
+    "infoTexts": [
+        {
+            "text": "Penalty kicks in soccer are like high-stakes showdowns, where one player faces off against the goalkeeper from 12 yards away. They’re awarded when a player commits a foul inside their own penalty area, such as tripping or holding an opponent. The rules are pretty straightforward: the ball is placed on the penalty spot, and the kicker has a chance to score with only the goalkeeper to beat. The kicker’s goal is to outsmart the keeper by aiming for a corner of the net or using a deceptive technique. Meanwhile, the goalkeeper tries to read the kicker’s intentions and make a crucial save. Penalty kicks add a thrilling element to the game, often making the difference in close matches.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Penalty kicks in football are a dramatic moment, akin to a duel between attacker and goalkeeper from a mere 12 yards. They’re awarded when a player commits a foul within their own penalty area—like a clumsy trip or a dubious tackle. The process is quite simple: the ball is placed on the penalty spot, and the player takes a direct shot at goal, with only the goalkeeper standing in their way. The key for the kicker is to strike with precision and guile, often aiming for the corners or using feints to outwit the keeper. On the flip side, the goalkeeper must read the kicker’s intentions and make a decisive save. Penalty kicks inject a thrilling edge into the game, frequently turning the tide in tightly contested matches.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "RULES"
+}

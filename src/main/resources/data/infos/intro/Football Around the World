@@ -1,0 +1,15 @@
+{
+    "title": "Football Around the World: A Global Perspective",
+    "subtitle": "How football is played and embraced in different cultures and countries.",
+    "infoTexts": [
+        {
+            "text": "Soccer is the world’s favorite pastime, and it’s fascinating to see how different cultures put their own spin on the game. In Brazil, it’s almost like a carnival on the field—players move with a flair and rhythm that mirrors the samba. Over in Europe, the game takes on a more tactical and disciplined approach, especially in places like Germany and Italy, where strategy is king. In Africa, football is all about raw passion and energy, with a focus on speed and skill that can make a match feel like a lightning storm. Even in the U.S., soccer is gaining ground, blending American athleticism with a growing appreciation for the sport's subtleties. No matter where you go, football is a universal language, connecting people through a shared love for the game—just with a few regional accents.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "Football has a curious way of adapting to the rhythm of different cultures while still retaining its universal charm. In Brazil, it’s almost like watching a dance, with players gliding across the pitch as if they were performing the samba, all flair and finesse. Across Europe, the game is a bit more of a chess match—tactical, precise, with an emphasis on teamwork, especially in places like Germany and Spain. Africa brings an infectious energy to football, where raw talent and passion explode on the field, turning matches into something akin to a joyous celebration. In the streets of England, it’s all about heart—whether it’s a Sunday league match or the Premier League, football is as much a part of the culture as a cup of tea. Wherever you go, football is more than just a sport; it’s a shared language that speaks to people across borders and brings them together, even if the style of play has its own local flavor.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "INTRO"
+}

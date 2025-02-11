@@ -1,0 +1,15 @@
+{
+    "title": "Fouls and Fair Play",
+    "subtitle": "Explanation of different types of fouls and their consequences, including yellow and red cards",
+    "infoTexts": [
+        {
+            "text": "In soccer, fouls are the game’s way of keeping things fair and preventing rough play. A foul occurs when a player breaks the rules—like tripping, pushing, or holding an opponent—usually resulting in a free kick or penalty kick for the other team. There are two key cards to know about: the yellow card, which is a warning, and the red card, which sends a player off the field and leaves their team a player short. Common fouls include tackles from behind or high kicks, which can disrupt the flow of the game and lead to serious consequences. Understanding these fouls helps keep the game enjoyable and safe for everyone involved. So, whether you’re a player or a fan, knowing what constitutes a foul helps you appreciate the fair play that’s at the heart of soccer.",
+            "lang": "AMERICAN"
+        },
+        {
+            "text": "In football, fouls are essential for ensuring the game remains fair and players play by the rules. A foul happens when a player commits an infringement like tripping, holding, or kicking an opponent, leading to a free kick or penalty kick for the opposing side. There are two significant cards to be aware of: the yellow card, which acts as a caution, and the red card, which means the player is sent off and their team plays with one less player. Typical fouls include reckless tackles or dangerous play, which can disrupt the game’s flow and lead to serious consequences. Knowing these fouls and their implications helps everyone—from players to spectators—understand and appreciate the fair play that football celebrates.",
+            "lang": "BRITISH"
+        }
+    ],
+    "infoCategory": "RULES"
+}
