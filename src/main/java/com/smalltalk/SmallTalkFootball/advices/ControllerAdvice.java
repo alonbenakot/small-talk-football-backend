@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ControllerAdvice {
 
     @ExceptionHandler(value = Exception.class)
-    @ResponseStatus(HttpStatus.NON_AUTHORITATIVE_INFORMATION)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public SmallTalkResponse exceptionHandler(Exception e) {
-        return new SmallTalkResponse<>(e.getMessage(), HttpStatus.NON_AUTHORITATIVE_INFORMATION.value());
+        return new SmallTalkResponse<>(e.getMessage(), HttpStatus.BAD_REQUEST.value());
     }
 }
