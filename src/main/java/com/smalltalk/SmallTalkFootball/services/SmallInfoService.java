@@ -7,7 +7,6 @@ import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
-//import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosInitiator;
 import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosInitiator;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
