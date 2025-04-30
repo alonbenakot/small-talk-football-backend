@@ -1,5 +1,7 @@
-package com.smalltalk.SmallTalkFootball.entities;
+package com.smalltalk.SmallTalkFootball.domain;
 
+import com.smalltalk.SmallTalkFootball.enums.Role;
+import com.smalltalk.SmallTalkFootball.models.UserIndications;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
@@ -25,6 +27,10 @@ public class User {
     private String password;
 
     private boolean priorFootballKnowledge;
+
+    private Role role;
+
+    private UserIndications userIndications;
 
     public User(String firstName, String lastName, String email, String password, boolean priorFootballKnowledge) {
         this.firstName = firstName;

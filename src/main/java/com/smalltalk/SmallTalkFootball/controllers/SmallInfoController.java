@@ -1,7 +1,7 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.entities.InfoCategory;
-import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
+import com.smalltalk.SmallTalkFootball.enums.InfoCategory;
+import com.smalltalk.SmallTalkFootball.domain.SmallInfo;
 import com.smalltalk.SmallTalkFootball.services.SmallInfoService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;

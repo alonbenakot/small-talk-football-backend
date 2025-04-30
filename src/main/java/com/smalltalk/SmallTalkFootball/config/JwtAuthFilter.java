@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.config;
 
-import com.smalltalk.SmallTalkFootball.entities.User;
+import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

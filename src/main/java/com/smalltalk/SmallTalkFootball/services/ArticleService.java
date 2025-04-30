@@ -1,6 +1,8 @@
 package com.smalltalk.SmallTalkFootball.services;
 
-import com.smalltalk.SmallTalkFootball.entities.Article;
+import com.smalltalk.SmallTalkFootball.domain.Article;
+import com.smalltalk.SmallTalkFootball.domain.User;
+import com.smalltalk.SmallTalkFootball.models.UserIndications;
 import com.smalltalk.SmallTalkFootball.repositories.ArticleRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.articles.ArticleAlreadyExistsException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.articles.NoArticleFoundException;
@@ -16,6 +18,7 @@ import java.util.List;
 public class ArticleService {
 
     private final ArticleRepository articleRepo;
+    private final UserService userService;
 
     public List<Article> getPublishedArticles() {
         return articleRepo.findAllByPublishedTrue();
@@ -34,6 +37,8 @@ public class ArticleService {
             throw new ArticleAlreadyExistsException();
         }
         article.setPublished(false);
+        List<User> admins = userService.getAdmins();
+        admins.forEach((admin -> admin.setUserIndications(new UserIndications(true))));
         return articleRepo.save(article);
     }
 

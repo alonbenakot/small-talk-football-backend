@@ -1,7 +1,7 @@
 package com.smalltalk.SmallTalkFootball.system.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
+import com.smalltalk.SmallTalkFootball.domain.SmallInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

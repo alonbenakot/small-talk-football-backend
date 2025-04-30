@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.repositories;
 
-import com.smalltalk.SmallTalkFootball.entities.Article;
+import com.smalltalk.SmallTalkFootball.domain.Article;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 

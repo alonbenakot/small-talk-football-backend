@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.config;
 
-import com.smalltalk.SmallTalkFootball.entities.User;
+import com.smalltalk.SmallTalkFootball.domain.User;
 import io.jsonwebtoken.*;
 import org.springframework.stereotype.Service;
 

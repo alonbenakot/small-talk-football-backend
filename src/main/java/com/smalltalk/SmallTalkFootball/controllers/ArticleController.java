@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.entities.Article;
+import com.smalltalk.SmallTalkFootball.domain.Article;
 import com.smalltalk.SmallTalkFootball.services.ArticleService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.articles.ArticleAlreadyExistsException;

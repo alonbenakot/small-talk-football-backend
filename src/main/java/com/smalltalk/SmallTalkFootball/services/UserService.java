@@ -1,7 +1,8 @@
 package com.smalltalk.SmallTalkFootball.services;
 
-import com.smalltalk.SmallTalkFootball.entities.LoginInput;
-import com.smalltalk.SmallTalkFootball.entities.User;
+import com.smalltalk.SmallTalkFootball.models.LoginInput;
+import com.smalltalk.SmallTalkFootball.enums.Role;
+import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.UserException;
@@ -10,6 +11,7 @@ import com.smalltalk.SmallTalkFootball.config.JwtUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -23,6 +25,7 @@ public class UserService {
         if (repository.findByEmail(user.getEmail()).isPresent()) {
             throw new UserException(Messages.MEMBER_WITH_EMAIL_EXISTS);
         }
+        user.setRole(Role.MEMBER);
         String msg = Messages.WELCOME_MEMBER.formatted(user.getFirstName());
         SmallTalkResponse<User> response = new SmallTalkResponse<>(repository.save(user), msg);
 
@@ -33,7 +36,6 @@ public class UserService {
         Optional<User> userOptional = repository.findByEmail(email);
         return userOptional.orElse(null);
     }
-
 
     public SmallTalkResponse<User> login(LoginInput loginInput) throws UserException {
         User user = repository.findByEmailAndPassword(loginInput.getEmail(), loginInput.getPassword())
@@ -48,6 +50,10 @@ public class UserService {
         response.setJwt(jwtUtil.generateToken(response.getData()));
         response.getData().setPassword(null);
         return response;
+    }
+
+    public List<User> getAdmins() {
+       return repository.findAllByRole(Role.ADMIN);
     }
 }
 

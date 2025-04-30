@@ -1,7 +1,7 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.entities.LoginInput;
-import com.smalltalk.SmallTalkFootball.entities.User;
+import com.smalltalk.SmallTalkFootball.models.LoginInput;
+import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
