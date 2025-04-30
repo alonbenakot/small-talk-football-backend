@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @AllArgsConstructor
 @RequestMapping("small-infos")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "http://localhost:5173")
 public class SmallInfoController {
 
     private final SmallInfoService service;

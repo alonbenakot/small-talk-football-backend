@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.services;
 
+import com.smalltalk.SmallTalkFootball.entities.LoginInput;
 import com.smalltalk.SmallTalkFootball.entities.User;
 import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
@@ -34,8 +35,8 @@ public class UserService {
     }
 
 
-    public SmallTalkResponse<User> login(String email, String password) throws UserException {
-        User user = repository.findByEmailAndPassword(email, password)
+    public SmallTalkResponse<User> login(LoginInput loginInput) throws UserException {
+        User user = repository.findByEmailAndPassword(loginInput.getEmail(), loginInput.getPassword())
                 .orElseThrow(() -> new UserException(Messages.INCORRECT_EMAIL_OR_PASSWORD));
         String msg = Messages.MEMBER_LOGIN.formatted(user.getFirstName());
         SmallTalkResponse<User> response = new SmallTalkResponse<>(user,msg);

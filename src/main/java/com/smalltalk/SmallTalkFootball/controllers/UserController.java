@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
+import com.smalltalk.SmallTalkFootball.entities.LoginInput;
 import com.smalltalk.SmallTalkFootball.entities.User;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
@@ -11,13 +12,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("users")
-@CrossOrigin(origins = "http://localhost:4200")
+@RequestMapping("users/")
+@CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
 
     private final UserService service;
 
-    @PostMapping
+    @PostMapping("signup")
     @ResponseStatus(HttpStatus.CREATED)
     public SmallTalkResponse<User> signUp(@RequestBody User user) throws SmallTalkException {
         SmallTalkResponse<User> response = service.addUser(user);
@@ -25,10 +26,10 @@ public class UserController {
         return response;
     }
 
-    @GetMapping
+    @PostMapping("login")
     @ResponseStatus(HttpStatus.OK)
-    public SmallTalkResponse<User> login(@RequestParam String email, @RequestParam String password) throws UserException {
-        SmallTalkResponse<User> response = service.login(email, password);
+    public SmallTalkResponse<User> login(@RequestBody LoginInput loginInput) throws UserException {
+        SmallTalkResponse<User> response = service.login(loginInput);
         response.setStatusCode(HttpStatus.OK.value());
         return response;
     }
