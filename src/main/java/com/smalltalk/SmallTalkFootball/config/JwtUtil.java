@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.config;
 
 import com.smalltalk.SmallTalkFootball.domain.User;
 import io.jsonwebtoken.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -19,12 +20,13 @@ public class JwtUtil {
 
     private final String signatureAlgorithm = SignatureAlgorithm.HS256.getJcaName();
     private final String encodedSecretKey = "this+is+my+key+and+it+must+be+at+least+256+bits+long";
-    private final Key decodedSecretKey = new SecretKeySpec(Base64.getDecoder().decode(encodedSecretKey),
-            this.signatureAlgorithm);
+    private final Key decodedSecretKey = new SecretKeySpec(Base64.getDecoder().decode(encodedSecretKey), this.signatureAlgorithm);
+
+    @Value("${jwt.expiration:3600}")
+    private long jwtExpirationInSec;
 
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userPassword", user.getPassword());
         claims.put("userId", user.getId());
         return createToken(claims, user.getEmail());
     }
@@ -34,13 +36,14 @@ public class JwtUtil {
         Instant now = Instant.now();
 
         return Jwts.builder().setClaims(claims)
+
                 .setSubject(subject)
 
                 .setIssuedAt(Date.from(now))
 
-                .setExpiration(Date.from(now.plus(5, ChronoUnit.HOURS)))
+                .setExpiration(Date.from(now.plus(jwtExpirationInSec, ChronoUnit.SECONDS)))
 
-                .signWith(this.decodedSecretKey)
+                .signWith(decodedSecretKey)
 
                 .compact();
     }
@@ -55,15 +58,15 @@ public class JwtUtil {
         return claimsResolver.apply(claims);
     }
 
-    public String extractUserName(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
     /**
      * returns the JWT subject - in our case the email address
      */
     public String extractUserEmail(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    public String extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", String.class));
     }
 
     public Date extractExpiration(String token) {
@@ -75,8 +78,12 @@ public class JwtUtil {
     }
 
     public boolean isTokenValidated(String token, User user) {
-        String username = extractUserEmail(token);
-        return (username.equals(user.getEmail()) && !isTokenExpired(token));
+        if (user != null) {
+            String userName = extractUserEmail(token);
+            String userId = extractUserId(token);
+            return userName.equals(user.getEmail()) && userId.equals(user.getId()) && !isTokenExpired(token);
+        }
+        return false;
     }
 
 }
