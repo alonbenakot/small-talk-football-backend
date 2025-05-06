@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -29,7 +30,8 @@ public class ArticleService {
     }
 
     public Article getArticleById(String id) throws NoArticleFoundException {
-        return articleRepo.findById(id).orElseThrow(NoArticleFoundException::new);
+        Optional<Article> optional = articleRepo.findById(id);
+        return optional.orElseThrow(NoArticleFoundException::new);
     }
 
     public Article addArticle(Article article) throws ArticleAlreadyExistsException {
@@ -45,12 +47,12 @@ public class ArticleService {
     public Article publishArticle(String id) throws NoArticleFoundException {
         Article article = articleRepo.findById(id).orElseThrow(NoArticleFoundException::new);
         article.setPublished(true);
-        return article;
+        return articleRepo.save(article);
     }
 
     public Article updateArticle(Article article) throws NoArticleFoundException {
         Article articleFromDb = articleRepo.findById(article.getId()).orElseThrow(NoArticleFoundException::new);
-        return updateNonNullFields(articleFromDb, article);
+        return articleRepo.save(updateNonNullFields(articleFromDb, article));
     }
 
     private Article updateNonNullFields(Article articleFromDb, Article article) {

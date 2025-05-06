@@ -93,6 +93,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private static boolean isJwtRequiredArticles(String uri, String method) {
-        return "/articles".equals(uri) && (POST.equals(method) || PATCH.equals(method));
+        return uri.startsWith("/articles") && (POST.equals(method) || PATCH.equals(method));
     }
 }
