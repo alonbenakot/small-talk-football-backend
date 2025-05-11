@@ -10,5 +10,8 @@ public class Messages {
     public static final String MEMBER_LOGIN = "Hey %s, great to have you back!";
     public static final String USER_NOT_FOUND = "No user with this email was found";
     public static final String INFO_ALREADY_EXISTS = "An info with this title already exists.";
+    public static final String NO_ARTICLE_FOUND = "No article was found.";
+    public static final String ARTICLE_ALREADY_PUBLISHED = "This article is already published. Everything is ok, just no need to publish it again.";
+    public static final String ARTICLE_TITLE_NOT_UNIQUE = "An article with the same title already exists. If it is not the same as your article, consider changing the title";
 
 }

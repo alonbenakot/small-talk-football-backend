@@ -11,11 +11,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class SmallInfosInitiator {
+public class SmallInfosReader implements Reader<SmallInfo> {
 
     private final static String infosBasePath = "src/main/resources/data/infos/";
 
-    public static List<SmallInfo> init() {
+    @Override
+    public List<SmallInfo> read() {
         try (Stream<Path> paths = Files.walk(Path.of(infosBasePath))) {
 
             return paths.filter(Files::isRegularFile)
@@ -28,7 +29,7 @@ public class SmallInfosInitiator {
         }
     }
 
-    private static Function<Path, SmallInfo> mapToSmallInfo() {
+    private Function<Path, SmallInfo> mapToSmallInfo() {
         return path -> {
             try {
                 String json = Files.lines(path).collect(Collectors.joining());

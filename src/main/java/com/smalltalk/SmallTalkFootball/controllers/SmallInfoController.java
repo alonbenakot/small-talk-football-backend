@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.SmallInfo;
 import com.smalltalk.SmallTalkFootball.services.SmallInfoService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
+import com.smalltalk.SmallTalkFootball.system.exceptions.SmallInfoException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,7 +23,7 @@ public class SmallInfoController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) throws InfoAlreadyExistsException {
+    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) throws SmallInfoException {
         return service.addInfo(smallInfo);
     }
 

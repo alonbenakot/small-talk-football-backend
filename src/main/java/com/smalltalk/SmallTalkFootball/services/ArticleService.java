@@ -1,11 +1,10 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Article;
-import com.smalltalk.SmallTalkFootball.domain.User;
-import com.smalltalk.SmallTalkFootball.models.UserIndications;
 import com.smalltalk.SmallTalkFootball.repositories.ArticleRepository;
-import com.smalltalk.SmallTalkFootball.system.exceptions.articles.ArticleAlreadyExistsException;
-import com.smalltalk.SmallTalkFootball.system.exceptions.articles.NoArticleFoundException;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
+import com.smalltalk.SmallTalkFootball.system.exceptions.ArticleException;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,29 +28,33 @@ public class ArticleService {
         return articleRepo.findAllByPublishedFalse();
     }
 
-    public Article getArticleById(String id) throws NoArticleFoundException {
+    public Article getArticleById(String id) throws NotFoundException {
         Optional<Article> optional = articleRepo.findById(id);
-        return optional.orElseThrow(NoArticleFoundException::new);
+        return optional.orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
     }
 
-    public Article addArticle(Article article) throws ArticleAlreadyExistsException {
+    public Article addArticle(Article article) throws ArticleException {
         if (articleRepo.findByTitle(article.getTitle()).isPresent()) {
-            throw new ArticleAlreadyExistsException();
+            throw new ArticleException(Messages.ARTICLE_TITLE_NOT_UNIQUE);
         }
         article.setPublished(false);
-        List<User> admins = userService.getAdmins();
-        admins.forEach((admin -> admin.setUserIndications(new UserIndications(true))));
+        userService.setPendingArticleIndication(true);
         return articleRepo.save(article);
     }
 
-    public Article publishArticle(String id) throws NoArticleFoundException {
-        Article article = articleRepo.findById(id).orElseThrow(NoArticleFoundException::new);
+    public Article publishArticle(String id) throws ArticleException, NotFoundException {
+        Article article = articleRepo.findById(id).orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
+        if (article.isPublished()) {
+            throw new ArticleException(Messages.ARTICLE_ALREADY_PUBLISHED);
+        }
         article.setPublished(true);
-        return articleRepo.save(article);
+        articleRepo.save(article);
+        userService.setPendingArticleIndication(false);
+        return article;
     }
 
-    public Article updateArticle(Article article) throws NoArticleFoundException {
-        Article articleFromDb = articleRepo.findById(article.getId()).orElseThrow(NoArticleFoundException::new);
+    public Article updateArticle(Article article) throws NotFoundException {
+        Article articleFromDb = articleRepo.findById(article.getId()).orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
         return articleRepo.save(updateNonNullFields(articleFromDb, article));
     }
 
@@ -70,12 +73,12 @@ public class ArticleService {
         return articleFromDb;
     }
 
-    public void deleteArticle(String id) throws NoArticleFoundException {
-        if (articleRepo.existsById(id)) {
-            articleRepo.deleteById(id);
-        } else {
-            throw new NoArticleFoundException();
+    public void deleteArticle(String id) throws NotFoundException {
+        Article article = articleRepo.findById(id).orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
+        if (!article.isPublished()) {
+            userService.setPendingArticleIndication(false);
         }
+        articleRepo.deleteById(id);
     }
 
 

@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserIndications {
 
-    private boolean pendingArticles;
+    private boolean pendingArticles = false;
 
 }

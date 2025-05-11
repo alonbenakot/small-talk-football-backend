@@ -3,6 +3,7 @@ package com.smalltalk.SmallTalkFootball.services;
 import com.smalltalk.SmallTalkFootball.models.LoginInput;
 import com.smalltalk.SmallTalkFootball.enums.Role;
 import com.smalltalk.SmallTalkFootball.domain.User;
+import com.smalltalk.SmallTalkFootball.models.UserIndications;
 import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.UserException;
@@ -26,6 +27,7 @@ public class UserService {
             throw new UserException(Messages.MEMBER_WITH_EMAIL_EXISTS);
         }
         user.setRole(Role.MEMBER);
+        user.setUserIndications(new UserIndications());
         String msg = Messages.WELCOME_MEMBER.formatted(user.getFirstName());
         SmallTalkResponse<User> response = new SmallTalkResponse<>(repository.save(user), msg);
 
@@ -46,13 +48,20 @@ public class UserService {
         return processResponse(response);
     }
 
+    public void setPendingArticleIndication(boolean isPending) {
+        getAdmins().forEach(admin -> {
+            admin.getUserIndications().setPendingArticles(isPending);
+            repository.save(admin);
+        });
+    }
+
     private SmallTalkResponse<User> processResponse(SmallTalkResponse<User> response) {
         response.setJwt(jwtUtil.generateToken(response.getData()));
         response.getData().setPassword(null);
         return response;
     }
 
-    public List<User> getAdmins() {
+    private List<User> getAdmins() {
        return repository.findAllByRole(Role.ADMIN);
     }
 }

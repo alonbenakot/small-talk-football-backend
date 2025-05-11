@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.system.exceptions.articles;
+package com.smalltalk.SmallTalkFootball.system.exceptions;
 
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 
