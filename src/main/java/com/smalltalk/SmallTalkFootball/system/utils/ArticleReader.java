@@ -6,7 +6,7 @@ import java.util.List;
 
 public class ArticleReader implements Reader<Article>{
     @Override
-    public List read() {
+    public List<Article> read() {
         return null;
     }
 }

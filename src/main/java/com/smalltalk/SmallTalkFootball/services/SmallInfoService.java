@@ -1,9 +1,8 @@
 package com.smalltalk.SmallTalkFootball.services;
 
-import com.smalltalk.SmallTalkFootball.enums.InfoCategory;
 import com.smalltalk.SmallTalkFootball.domain.SmallInfo;
+import com.smalltalk.SmallTalkFootball.enums.InfoCategory;
 import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
-import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallInfoException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
@@ -23,23 +22,22 @@ public class SmallInfoService {
 
     private final SmallInfoRepository repository;
 
-    public SmallTalkResponse<SmallInfo> addInfo(SmallInfo info) throws SmallInfoException {
+    public SmallInfo addInfo(SmallInfo info) throws SmallInfoException {
         if (repository.findByTitle(info.getTitle()).isPresent()) {
             throw new SmallInfoException(Messages.INFO_ALREADY_EXISTS);
         }
-        return new SmallTalkResponse<>(repository.save(info));
+        return repository.save(info);
     }
 
-    public SmallTalkResponse<List<SmallInfo>> getAllInfos() {
+    public List<SmallInfo> getAllInfos() {
         List<SmallInfo> infos = repository.findAll();
         infos.sort(Comparator.comparing(SmallInfo::getInfoCategory));
-        return new SmallTalkResponse<>(infos);
+        return infos;
     }
 
-    public SmallTalkResponse<SmallInfo> getOneInfo(String infoId) throws NotFoundException {
+    public SmallInfo getOneInfo(String infoId) throws NotFoundException {
         Optional<SmallInfo> optionalInfo = repository.findById(infoId);
-        SmallInfo info = optionalInfo.orElseThrow(() -> new NotFoundException(Messages.NO_INFO_FOUND));
-        return new SmallTalkResponse<>(info);
+        return optionalInfo.orElseThrow(() -> new NotFoundException(Messages.NO_INFO_FOUND));
     }
 
     public void deleteSmallInfo(String id) throws NotFoundException {
@@ -47,9 +45,8 @@ public class SmallInfoService {
         repository.deleteById(id);
     }
 
-    public SmallTalkResponse<List<InfoCategory>> getCategories() {
-        List<InfoCategory> categories = Arrays.asList(InfoCategory.values());
-        return new SmallTalkResponse<>(categories);
+    public List<InfoCategory> getCategories() {
+        return Arrays.asList(InfoCategory.values());
     }
 
     public void initSmallInfos() {
