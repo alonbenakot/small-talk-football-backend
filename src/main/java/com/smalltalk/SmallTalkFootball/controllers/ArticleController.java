@@ -68,4 +68,10 @@ public class ArticleController {
     public void deleteArticle(@PathVariable String id) throws NotFoundException {
         service.deleteArticle(id);
     }
+
+    @PostMapping("/init")
+    @ResponseStatus(HttpStatus.OK)
+    public void initArticles() {
+        service.initArticles();
+    }
 }

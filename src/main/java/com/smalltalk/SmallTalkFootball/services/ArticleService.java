@@ -2,9 +2,10 @@ package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Article;
 import com.smalltalk.SmallTalkFootball.repositories.ArticleRepository;
-import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.ArticleException;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
+import com.smalltalk.SmallTalkFootball.system.utils.ArticleReader;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,5 +82,9 @@ public class ArticleService {
         articleRepo.deleteById(id);
     }
 
+    public void initArticles() {
+        articleRepo.deleteAll();
+        articleRepo.saveAll(ArticleReader.read());
+    }
 
 }

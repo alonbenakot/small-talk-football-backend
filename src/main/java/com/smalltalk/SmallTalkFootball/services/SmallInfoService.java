@@ -6,7 +6,6 @@ import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallInfoException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
-import com.smalltalk.SmallTalkFootball.system.utils.Reader;
 import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosReader;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -51,9 +50,7 @@ public class SmallInfoService {
 
     public void initSmallInfos() {
         repository.deleteAll();
-        Reader<SmallInfo> reader = new SmallInfosReader();
-        List<SmallInfo> generatedInfos = reader.read();
-        repository.saveAll(generatedInfos);
+        repository.saveAll(SmallInfosReader.read());
     }
 
 }

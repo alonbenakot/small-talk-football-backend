@@ -89,7 +89,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private static boolean isJwtRequiredSmallInfos(String uri, String method) {
-        return "/small-infos".equals(uri) && POST.equals(method);
+        return uri.startsWith("/small-infos") && POST.equals(method);
     }
 
     private static boolean isJwtRequiredArticles(String uri, String method) {
