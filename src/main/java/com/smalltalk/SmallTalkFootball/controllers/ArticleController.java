@@ -56,6 +56,11 @@ public class ArticleController {
     public SmallTalkResponse<Article> publishArticle(@PathVariable String id) throws  ArticleException, NotFoundException {
         return new SmallTalkResponse<>(service.publishArticle(id));
     }
+    @PatchMapping("/remove/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public SmallTalkResponse<Article> removeArticle(@PathVariable String id) throws  ArticleException, NotFoundException {
+        return new SmallTalkResponse<>(service.removeArticle(id));
+    }
 
     @PatchMapping()
     @ResponseStatus(HttpStatus.OK)

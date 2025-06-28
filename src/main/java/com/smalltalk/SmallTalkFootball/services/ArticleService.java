@@ -54,6 +54,17 @@ public class ArticleService {
         return article;
     }
 
+ public Article removeArticle(String id) throws ArticleException, NotFoundException {
+        Article article = articleRepo.findById(id).orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
+        if (!article.isPublished()) {
+            throw new ArticleException(Messages.ARTICLE_IS_NOT_PUBLISHED);
+        }
+        article.setPublished(false);
+        articleRepo.save(article);
+        userService.setPendingArticleIndication(true);
+        return article;
+    }
+
     public Article updateArticle(Article article) throws NotFoundException {
         Article articleFromDb = articleRepo.findById(article.getId()).orElseThrow(() -> new NotFoundException(Messages.NO_ARTICLE_FOUND));
         return articleRepo.save(updateNonNullFields(articleFromDb, article));
