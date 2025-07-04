@@ -50,7 +50,7 @@ public class ArticleService {
         }
         article.setPublished(true);
         articleRepo.save(article);
-        userService.setPendingArticleIndication(false);
+        userService.setPendingArticleIndication(!getPendingArticles().isEmpty());
         return article;
     }
 
