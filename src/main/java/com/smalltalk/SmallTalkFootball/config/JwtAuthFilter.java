@@ -1,8 +1,10 @@
 package com.smalltalk.SmallTalkFootball.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.enums.Role;
 import com.smalltalk.SmallTalkFootball.services.UserService;
+import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,7 +35,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (isJwtRequired(request)) {
 
             if (!isAuthHeaderValid(request)) {
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                sendUnauthorizedResponse(response, "You are unauthorized to make this action. If you think you should be, please log in again.");
                 return;
             }
 
@@ -45,7 +47,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 User user = userService.getUserByEmail(userEmail);
 
                 if (!jwtUtil.isTokenValidated(jwt, user)) {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    sendUnauthorizedResponse(response, "You are unauthorized to make this action. If you think you should be, please log in again.");
                     return;
                 }
 
@@ -55,7 +57,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
 
             } catch (Exception e) {
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                sendUnauthorizedResponse(response, "Unauthorized request");
                 return;
             }
         }
@@ -94,5 +96,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static boolean isJwtRequiredArticles(String uri, String method) {
         return uri.startsWith("/articles") && (POST.equals(method) || PATCH.equals(method));
+    }
+
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        SmallTalkResponse<?> errorResponse = new SmallTalkResponse<>(message, HttpStatus.UNAUTHORIZED.value());
+        response.setContentType("application/json");
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        new ObjectMapper().writeValue(response.getOutputStream(), errorResponse);
     }
 }
