@@ -40,7 +40,15 @@ public class ArticleService {
         }
         article.setPublished(false);
         userService.setPendingArticleIndication(true);
+        article.setText(normalizeText(article));
         return articleRepo.save(article);
+    }
+
+    private static String normalizeText(Article article) {
+        String normalizedText = article.getText()
+                .replaceAll("\\r\\n?", "\n")  // normalize all line endings to \n
+                .replaceAll("(?<!\n)\n(?!\n)", "\n\n"); // upgrade single line breaks to paragraph breaks
+        return normalizedText;
     }
 
     public Article publishArticle(String id) throws ArticleException, NotFoundException {
