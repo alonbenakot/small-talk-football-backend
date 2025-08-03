@@ -22,8 +22,8 @@ public class JwtUtil {
     private final String encodedSecretKey = "this+is+my+key+and+it+must+be+at+least+256+bits+long";
     private final Key decodedSecretKey = new SecretKeySpec(Base64.getDecoder().decode(encodedSecretKey), this.signatureAlgorithm);
 
-    @Value("${jwt.expiration:3600}")
-    private long jwtExpirationInSec;
+    @Value("${jwt.expiration:5}")
+    private long jwtExpirationInHours;
 
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
@@ -41,7 +41,7 @@ public class JwtUtil {
 
                 .setIssuedAt(Date.from(now))
 
-                .setExpiration(Date.from(now.plus(jwtExpirationInSec, ChronoUnit.SECONDS)))
+                .setExpiration(Date.from(now.plus(jwtExpirationInHours, ChronoUnit.HOURS)))
 
                 .signWith(decodedSecretKey)
 
