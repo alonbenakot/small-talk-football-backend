@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.system;
 
 import com.smalltalk.SmallTalkFootball.system.messages.SystemMessage;
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
 @Getter
 public class SmallTalkResponse<T> {
@@ -26,6 +27,13 @@ public class SmallTalkResponse<T> {
     public SmallTalkResponse(T data) {
         this.data = data;
         this.systemMessage = new SystemMessage();
+        this.statusCode = HttpStatus.OK.value();
+    }
+
+    public SmallTalkResponse(T data, int statusCode) {
+        this.data = data;
+        this.systemMessage = new SystemMessage();
+        this.statusCode = statusCode;
     }
 
     public SmallTalkResponse(T data, String alertMsg) {

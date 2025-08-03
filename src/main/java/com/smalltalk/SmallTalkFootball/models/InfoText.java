@@ -1,5 +1,6 @@
-package com.smalltalk.SmallTalkFootball.entities;
+package com.smalltalk.SmallTalkFootball.models;
 
+import com.smalltalk.SmallTalkFootball.enums.Language;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

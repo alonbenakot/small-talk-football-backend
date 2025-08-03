@@ -1,10 +1,10 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.entities.InfoCategory;
-import com.smalltalk.SmallTalkFootball.entities.SmallInfo;
+import com.smalltalk.SmallTalkFootball.domain.SmallInfo;
+import com.smalltalk.SmallTalkFootball.enums.InfoCategory;
 import com.smalltalk.SmallTalkFootball.services.SmallInfoService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
-import com.smalltalk.SmallTalkFootball.system.exceptions.InfoAlreadyExistsException;
+import com.smalltalk.SmallTalkFootball.system.exceptions.SmallInfoException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,26 +22,26 @@ public class SmallInfoController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) throws InfoAlreadyExistsException {
-        return service.addInfo(smallInfo);
+    public SmallTalkResponse<SmallInfo> addSmallInfos(@RequestBody SmallInfo smallInfo) throws SmallInfoException {
+        return new SmallTalkResponse<>(service.addInfo(smallInfo));
     }
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<List<SmallInfo>> getAllInfos() {
-        return service.getAllInfos();
+        return new SmallTalkResponse<>(service.getAllInfos());
     }
 
     @GetMapping("/categories")
     @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<List<InfoCategory>> getCategories() {
-        return service.getCategories();
+        return new SmallTalkResponse<>(service.getCategories());
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
     public SmallTalkResponse<SmallInfo> getOneSmallInfo(@PathVariable String id) throws SmallTalkException {
-        return service.getOneInfo(id);
+        return new SmallTalkResponse<>(service.getOneInfo(id));
     }
 
     @DeleteMapping("/{id}")

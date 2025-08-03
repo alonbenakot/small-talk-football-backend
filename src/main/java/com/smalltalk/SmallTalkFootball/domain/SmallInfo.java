@@ -1,5 +1,7 @@
-package com.smalltalk.SmallTalkFootball.entities;
+package com.smalltalk.SmallTalkFootball.domain;
 
+import com.smalltalk.SmallTalkFootball.enums.InfoCategory;
+import com.smalltalk.SmallTalkFootball.models.InfoText;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;

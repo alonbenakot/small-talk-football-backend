@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.entities;
+package com.smalltalk.SmallTalkFootball.models;
 
 public class LoginInput {
 
