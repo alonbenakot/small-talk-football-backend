@@ -22,7 +22,7 @@ public class JwtUtil {
     private final String encodedSecretKey = "this+is+my+key+and+it+must+be+at+least+256+bits+long";
     private final Key decodedSecretKey = new SecretKeySpec(Base64.getDecoder().decode(encodedSecretKey), this.signatureAlgorithm);
 
-    @Value("${jwt.expiration:5}")
+    @Value("${jwt.expiration}")
     private long jwtExpirationInHours;
 
     public String generateToken(User user) {
