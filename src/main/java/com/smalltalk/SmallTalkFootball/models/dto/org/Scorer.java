@@ -1,6 +1,6 @@
-package com.smalltalk.SmallTalkFootball.models;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class Assist{
+public class Scorer{
 	private String name;
 	private int id;
 

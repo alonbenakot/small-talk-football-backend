@@ -2,7 +2,7 @@ package com.smalltalk.SmallTalkFootball.models.dto;
 
 import java.util.List;
 
-public class HomeTeam{
+public class TeamDTO {
 	private List<Object> bench;
 	private int leagueRank;
 	private String name;
@@ -11,7 +11,7 @@ public class HomeTeam{
 	private int id;
 	private String formation;
 	private String shortName;
-	private Coach coach;
+	private CoachDTO coach;
 	private String crest;
 
 	public List<Object> getBench(){
@@ -46,7 +46,7 @@ public class HomeTeam{
 		return shortName;
 	}
 
-	public Coach getCoach(){
+	public CoachDTO getCoach(){
 		return coach;
 	}
 

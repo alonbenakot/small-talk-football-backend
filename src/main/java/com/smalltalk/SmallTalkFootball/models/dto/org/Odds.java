@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.models;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
 public class Odds{
 	private Object awayWin;

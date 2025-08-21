@@ -1,13 +1,8 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class Coach{
-	private String nationality;
+public class Assist{
 	private String name;
 	private int id;
-
-	public String getNationality(){
-		return nationality;
-	}
 
 	public String getName(){
 		return name;

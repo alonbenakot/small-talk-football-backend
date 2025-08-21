@@ -1,31 +1,31 @@
-package com.smalltalk.SmallTalkFootball.models;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
 import java.util.List;
 
-public class MatchesItem{
+public class MatchesItemDTO {
 	private Area area;
 	private String venue;
 	private List<PenaltiesItem> penalties;
 	private int matchday;
-	private AwayTeam awayTeam;
-	private Competition competition;
+	private TeamDTO awayTeam;
+	private CompetitionDTO competition;
 	private String utcDate;
 	private String minute;
 	private String lastUpdated;
-	private Score score;
+	private ScoreDTO score;
 	private int injuryTime;
 	private String stage;
 	private List<Object> substitutions;
 	private Odds odds;
 	private Season season;
-	private HomeTeam homeTeam;
+	private TeamDTO homeTeam;
 	private int id;
 	private List<Object> bookings;
 	private List<RefereesItem> referees;
 	private Object attendance;
 	private String status;
 	private Object group;
-	private List<GoalsItem> goals;
+	private List<GoalDTO> goals;
 
 	public Area getArea(){
 		return area;
@@ -43,11 +43,11 @@ public class MatchesItem{
 		return matchday;
 	}
 
-	public AwayTeam getAwayTeam(){
+	public TeamDTO getAwayTeam(){
 		return awayTeam;
 	}
 
-	public Competition getCompetition(){
+	public CompetitionDTO getCompetition(){
 		return competition;
 	}
 
@@ -63,7 +63,7 @@ public class MatchesItem{
 		return lastUpdated;
 	}
 
-	public Score getScore(){
+	public ScoreDTO getScore(){
 		return score;
 	}
 
@@ -87,7 +87,7 @@ public class MatchesItem{
 		return season;
 	}
 
-	public HomeTeam getHomeTeam(){
+	public TeamDTO getHomeTeam(){
 		return homeTeam;
 	}
 
@@ -115,7 +115,7 @@ public class MatchesItem{
 		return group;
 	}
 
-	public List<GoalsItem> getGoals(){
+	public List<GoalDTO> getGoals(){
 		return goals;
 	}
 }

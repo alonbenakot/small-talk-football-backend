@@ -1,9 +1,6 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
-import com.smalltalk.SmallTalkFootball.models.dto.FullTime;
-import com.smalltalk.SmallTalkFootball.models.dto.HalfTime;
-
-public class Score{
+public class ScoreDTO {
 	private String duration;
 	private String winner;
 	private HalfTime halfTime;

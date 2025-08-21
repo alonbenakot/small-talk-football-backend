@@ -1,6 +1,6 @@
-package com.smalltalk.SmallTalkFootball.models;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class HalfTime{
+public class FullTime{
 	private int away;
 	private int home;
 

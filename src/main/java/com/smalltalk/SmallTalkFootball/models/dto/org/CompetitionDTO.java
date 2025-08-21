@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class Competition{
+public class CompetitionDTO {
 	private String code;
 	private String name;
 	private int id;

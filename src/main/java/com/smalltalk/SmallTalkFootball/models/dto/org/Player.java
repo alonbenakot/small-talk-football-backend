@@ -1,6 +1,6 @@
-package com.smalltalk.SmallTalkFootball.models;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class Team{
+public class Player{
 	private String name;
 	private int id;
 
