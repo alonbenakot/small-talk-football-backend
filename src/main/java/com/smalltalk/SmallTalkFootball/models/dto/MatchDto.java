@@ -1,8 +1,8 @@
-package com.smalltalk.SmallTalkFootball.models.dto.api;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
 import java.util.List;
 
-public class ResponseItem{
+public class MatchDto {
 	private List<CardsItem> cards;
 	private String matchAwayteamName;
 	private String matchAwayteamFtScore;
@@ -10,7 +10,7 @@ public class ResponseItem{
 	private List<Statistics1halfItem> statistics1half;
 	private String leagueLogo;
 	private String matchHometeamHalftimeScore;
-	private Lineup lineup;
+	private MatchLineup lineup;
 	private String matchReferee;
 	private String leagueYear;
 	private String matchAwayteamHalftimeScore;
@@ -49,7 +49,7 @@ public class ResponseItem{
 		return cards;
 	}
 
-	public String getMatchAwayteamName(){
+	public String getMatchAwayTeamName(){
 		return matchAwayteamName;
 	}
 
@@ -73,7 +73,7 @@ public class ResponseItem{
 		return matchHometeamHalftimeScore;
 	}
 
-	public Lineup getLineup(){
+	public MatchLineup getMatchLineup(){
 		return lineup;
 	}
 
@@ -177,7 +177,7 @@ public class ResponseItem{
 		return matchAwayteamExtraScore;
 	}
 
-	public String getMatchHometeamName(){
+	public String getMatchHomeTeamName(){
 		return matchHometeamName;
 	}
 

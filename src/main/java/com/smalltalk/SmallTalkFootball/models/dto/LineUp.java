@@ -1,8 +1,8 @@
-package com.smalltalk.SmallTalkFootball.models.dto.api;
+package com.smalltalk.SmallTalkFootball.models.dto;
 
 import java.util.List;
 
-public class Away{
+public class LineUp {
 	private List<StartingLineupsItem> startingLineups;
 	private List<SubstitutesItem> substitutes;
 	private List<CoachItem> coach;
@@ -16,7 +16,7 @@ public class Away{
 		return substitutes;
 	}
 
-	public List<CoachItem> getCoach(){
+	public List<CoachItem> getCoaches(){
 		return coach;
 	}
 
