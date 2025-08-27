@@ -2,21 +2,19 @@ package com.smalltalk.SmallTalkFootball.models;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 @Builder
 @Getter
+@Setter
 @ToString
 public class Team {
-    private int leagueRank;
-
     private String name;
 
-    private String id;
+    private String externalId;
 
     private String formation;
-
-    private String shortName;
 
     private String coach;
 

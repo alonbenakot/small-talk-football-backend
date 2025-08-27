@@ -3,10 +3,12 @@ package com.smalltalk.SmallTalkFootball.repositories;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
-import java.util.Optional;
+import java.util.List;
 
-public interface TeamRepository extends MongoRepository<TeamData, String> {
+public interface TeamDataRepository extends MongoRepository<TeamData, String> {
 
-    Optional<TeamData> findByExternalKey(String externalKey);
+    void deleteByCompetitionCode(int competitionCode);
+
+    List<TeamData> findByCompetitionCode(int competitionCode);
 
 }

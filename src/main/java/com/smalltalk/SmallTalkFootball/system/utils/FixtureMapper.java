@@ -126,7 +126,7 @@ public class FixtureMapper {
         String coach = getCoach(matchDto, teamType);
 
         return Team.builder()
-                .id(teamId)
+                .externalId(teamId)
                 .crest(crest)
                 .name(name)
                 .coach(coach)

@@ -24,4 +24,6 @@ public class TeamData {
     private String coach;
 
     private String crest;
+
+    private int competitionCode;
 }
