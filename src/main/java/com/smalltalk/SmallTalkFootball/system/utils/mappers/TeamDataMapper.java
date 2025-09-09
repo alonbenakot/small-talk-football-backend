@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.system.utils;
+package com.smalltalk.SmallTalkFootball.system.utils.mappers;
 
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
@@ -11,7 +11,7 @@ public class TeamDataMapper {
                 .name(teamDto.getTeamName())
                 .externalKey(teamDto.getTeamKey())
                 .crest(teamDto.getTeamBadge())
-                .coach(teamDto.getCoaches().get(0).getCoachName())
+                .coach(!teamDto.getCoaches().isEmpty() ? teamDto.getCoaches().get(0).getCoachName() : "")
                 .competitionCode(competition.getCode())
                 .build();
     }

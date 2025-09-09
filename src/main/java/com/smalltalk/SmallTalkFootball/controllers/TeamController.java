@@ -1,11 +1,9 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.services.TeamDataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,7 +14,7 @@ public class TeamController {
     private final TeamDataService service;
 
     @PostMapping()
-    public void saveTeamsData(@RequestParam Competition competition) {
-        service.saveCompetitionTeams(competition);
+    public void saveTeamsData() {
+        service.saveCompetitionTeams();
     }
 }

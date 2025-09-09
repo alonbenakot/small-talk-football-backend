@@ -5,7 +5,7 @@ import com.smalltalk.SmallTalkFootball.repositories.ArticleRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.ArticleException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
-import com.smalltalk.SmallTalkFootball.system.utils.ArticleReader;
+import com.smalltalk.SmallTalkFootball.system.utils.readers.ArticleReader;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

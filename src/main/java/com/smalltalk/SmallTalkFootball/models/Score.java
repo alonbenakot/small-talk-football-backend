@@ -15,4 +15,8 @@ public class Score {
     private int away;
 
     private int home;
+
+    public void setWinner(String winner) {
+        this.winner = winner;
+    }
 }

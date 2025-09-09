@@ -3,8 +3,8 @@ package com.smalltalk.SmallTalkFootball.models.dto;
 import java.util.List;
 
 public class TeamDataDto {
+	//TODO cleanup unused fields
 	private List<CoachesItem> coaches;
-	private Venue venue;
 	private String teamCountry;
 	private String teamFounded;
 	private List<PlayersItem> players;
@@ -14,10 +14,6 @@ public class TeamDataDto {
 
 	public List<CoachesItem> getCoaches(){
 		return coaches;
-	}
-
-	public Venue getVenue(){
-		return venue;
 	}
 
 	public String getTeamCountry(){

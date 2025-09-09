@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.models;
 
+import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -21,4 +22,10 @@ public class Goal {
     private boolean penalty;
 
     private int minute;
+
+    private TeamType teamType;
+
+    public void setTeamName(String teamName) {
+        this.teamName = teamName;
+    }
 }

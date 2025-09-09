@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Builder
@@ -35,12 +36,12 @@ public class Fixture {
 
     private List<Goal> goals;
 
-    private String durationInMinutes;
+    private int durationInMinutes;
 
     private int externalId;
 
-    private String utcDate;
+    private LocalDateTime matchDateTime;
 
-    private String matchStartTime;
+    private boolean finished;
 
 }

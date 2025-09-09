@@ -1,7 +1,6 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
-import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.services.FixtureService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import lombok.AllArgsConstructor;
@@ -16,10 +15,9 @@ public class FixtureController {
 
     private final FixtureService service;
 
-
     @GetMapping()
-    public SmallTalkResponse<List<Fixture>> getLastWeeksFixturesByCompetition(@RequestParam Competition competition) {
-        return new SmallTalkResponse<>(service.getLastWeekFixtures(competition));
+    public SmallTalkResponse<List<Fixture>> getFixtures(@RequestParam int matchDays) {
+        return new SmallTalkResponse<>(service.fetchAndSaveFixtures(matchDays));
     }
 
     @DeleteMapping()

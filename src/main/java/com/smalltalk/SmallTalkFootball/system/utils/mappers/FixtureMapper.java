@@ -1,16 +1,22 @@
-package com.smalltalk.SmallTalkFootball.system.utils;
+package com.smalltalk.SmallTalkFootball.system.utils.mappers;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.GoalscorerItem;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 public class FixtureMapper {
+
+    public static final String FINISHED = "Finished";
 
     public static Fixture map(MatchDto matchDto) {
         return Fixture.builder()
@@ -19,11 +25,18 @@ public class FixtureMapper {
                 .venue(matchDto.getMatchStadium())
                 .homeTeam(mapTeam(matchDto, TeamType.HOME))
                 .awayTeam(mapTeam(matchDto, TeamType.AWAY))
-                .utcDate(matchDto.getMatchDate())
-                .matchStartTime(matchDto.getMatchTime())
+                .matchDateTime(mapTime(matchDto))
+                .finished(FINISHED.equals(matchDto.getMatchStatus()))
                 .score(mapScore(matchDto))
                 .goals(mapGoals(matchDto))
                 .build();
+    }
+
+    private static LocalDateTime mapTime(MatchDto matchDto) {
+        LocalDate date = LocalDate.parse(matchDto.getMatchDate());
+        LocalTime time = LocalTime.parse(matchDto.getMatchTime());
+
+        return LocalDateTime.of(date, time);
     }
 
     private static List<Goal> mapGoals(MatchDto matchDto) {
@@ -52,6 +65,7 @@ public class FixtureMapper {
                 .teamName(teamName)
                 .homeScore(homeScore)
                 .awayScore(awayScore)
+                .teamType(teamType)
                 .build();
     }
 
@@ -143,9 +157,4 @@ public class FixtureMapper {
             return null;
         }
     }
-
-    enum TeamType {
-        HOME, AWAY
-    }
-
 }
