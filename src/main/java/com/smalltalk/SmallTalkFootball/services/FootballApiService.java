@@ -7,8 +7,6 @@ import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.system.utils.ResponseHandler;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -40,46 +38,56 @@ public class FootballApiService {
                 .toList();
     }
 
+    public List<Object> getCompetitionData() {
+        return ResponseHandler.process(
+                () -> restClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .queryParam("APIkey", apiKey)
+                                .queryParam("action", "get_leagues")
+                                .build())
+                        .retrieve()
+                        .toEntity(String.class),
+                "Failed fetching competitions data",
+                new TypeReference<List<Object>>() {
+                },
+                objectMapper
+        ).toList();
+    }
+
     public List<TeamDataDto> getTeamData(Competition competition) {
-        return restClient.get().uri(uriBuilder -> uriBuilder
-                        .queryParam("APIkey", apiKey)
-                        .queryParam("action", "get_teams")
-                        .queryParam("league_id", competition.getCode())
-                        .build())
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {
-                });
+        return ResponseHandler.process(
+                        () -> restClient.get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam("APIkey", apiKey)
+                                        .queryParam("action", "get_teams")
+                                        .queryParam("league_id", competition.getCode())
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class),
+                        "Failed fetching " + competition + " team data",
+                        new TypeReference<List<TeamDataDto>>() {
+                        },
+                        objectMapper)
+                .toList();
     }
 
     private Stream<MatchDto> fetchMatchesByCompetition(Competition competition, LocalDate fromDate) {
-        ResponseEntity<String> response = null;
-        try {
-            response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .queryParam("APIkey", apiKey)
-                            .queryParam("action", "get_events")
-                            .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                            .queryParam("to", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                            .queryParam("league_id", competition.getCode())
-                            .build())
-                    .retrieve()
-                    .toEntity(String.class);
-
-            if (ResponseHandler.isValidResponse(response)) {
-                List<MatchDto> matches = objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<>() {
-                        }
-                );
-                return matches.stream();
-            } else {
-                ResponseHandler.logResponseError(response, "Failed fetching " + competition + " matches");
-                return Stream.empty();
-            }
-        } catch (Exception e) {
-            ResponseHandler.logResponseError(response, "Failed fetching " + competition + " matches");
-            return Stream.empty();
-        }
+        return ResponseHandler.process(
+                () -> restClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .queryParam("APIkey", apiKey)
+                                .queryParam("action", "get_events")
+                                .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                .queryParam("to", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                .queryParam("league_id", competition.getCode())
+                                .build())
+                        .retrieve()
+                        .toEntity(String.class),
+                "Failed fetching " + competition + " matches",
+                new TypeReference<List<MatchDto>>() {
+                },
+                objectMapper
+        );
     }
 
 
