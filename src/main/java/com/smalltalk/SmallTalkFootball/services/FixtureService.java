@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.repositories.FixtureRepository;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.FixtureMapper;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 @AllArgsConstructor
+@Slf4j
 public class FixtureService {
 
     private final FootballApiService footBallApiService;
@@ -30,7 +32,7 @@ public class FixtureService {
             deleteOldFixtures(earliestMatchDay);
             return repo.saveAll(fixtures);
         } else {
-            System.out.println("No new fixtures found");
+            log.info("No new fixtures found");
             return List.of();
         }
 
@@ -55,7 +57,7 @@ public class FixtureService {
 
     private void deleteOldFixtures(LocalDate deleteMatchesDate) {
         long deletedFixtures = repo.deleteByMatchDateTimeBefore(deleteMatchesDate.atStartOfDay());
-        System.out.printf("Deleted %d fixtures%n", deletedFixtures);
+        log.info("Deleted {} fixtures", deletedFixtures);
     }
 
     public void deleteAllFixtures() {
