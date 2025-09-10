@@ -36,6 +36,10 @@ public class FixtureService {
 
     }
 
+    public List<Fixture> getFixtures() {
+        return repo.findAll();
+    }
+
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {
         List<TeamData> allTeamsData = teamService.getTeamsData();
         Set<Integer> externalIds = getFixturesExternalIds(earliestMatchDay);

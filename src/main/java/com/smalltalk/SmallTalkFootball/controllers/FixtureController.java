@@ -15,9 +15,14 @@ public class FixtureController {
 
     private final FixtureService service;
 
-    @GetMapping()
-    public SmallTalkResponse<List<Fixture>> getFixtures(@RequestParam int matchDays) {
+    @PostMapping()
+    public SmallTalkResponse<List<Fixture>> fetchAndSaveFixtures(@RequestParam int matchDays) {
         return new SmallTalkResponse<>(service.fetchAndSaveFixtures(matchDays));
+    }
+
+    @GetMapping()
+    public SmallTalkResponse<List<Fixture>> getFixtures() {
+        return new SmallTalkResponse<>(service.getFixtures());
     }
 
     @DeleteMapping()

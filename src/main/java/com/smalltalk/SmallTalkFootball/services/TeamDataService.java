@@ -23,14 +23,16 @@ public class TeamDataService {
     private final FootballApiService service;
 
     public void saveCompetitionTeams() {
-        repository.deleteAll();
 
         List<TeamData> teams = Arrays.stream(Competition.values())
                 .flatMap(competition -> service.getTeamData(competition).stream()
                         .map(team -> TeamDataMapper.map(team, competition)))
                 .toList();
 
-        repository.saveAll(teams);
+        if (!teams.isEmpty()) {
+            repository.deleteAll();
+            repository.saveAll(teams);
+        }
     }
 
     public List<TeamData> getTeamsData() {

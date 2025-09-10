@@ -40,6 +40,17 @@ public class FootballApiService {
                 .toList();
     }
 
+    public List<TeamDataDto> getTeamData(Competition competition) {
+        return restClient.get().uri(uriBuilder -> uriBuilder
+                        .queryParam("APIkey", apiKey)
+                        .queryParam("action", "get_teams")
+                        .queryParam("league_id", competition.getCode())
+                        .build())
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {
+                });
+    }
+
     private Stream<MatchDto> fetchMatchesByCompetition(Competition competition, LocalDate fromDate) {
         ResponseEntity<String> response = null;
         try {
@@ -71,15 +82,6 @@ public class FootballApiService {
         }
     }
 
-    public List<TeamDataDto> getTeamData(Competition competition) {
-        return restClient.get().uri(uriBuilder -> uriBuilder
-                        .queryParam("APIkey", apiKey)
-                        .queryParam("action", "get_teams")
-                        .queryParam("league_id", competition.getCode())
-                        .build())
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {
-                });
-    }
+
 }
 
