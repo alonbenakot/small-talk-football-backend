@@ -1,22 +1,12 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
 public class GoalscorerItem{
-	private String homeScorerId;
 	private String score;
 	private String homeAssist;
 	private String awayAssist;
-	private String homeAssistId;
-	private String awayAssistId;
-	private String awayScorerId;
-	private String scoreInfoTime;
 	private String time;
 	private String awayScorer;
 	private String homeScorer;
-	private String info;
-
-	public String getHomeScorerId(){
-		return homeScorerId;
-	}
 
 	public String getScore(){
 		return score;
@@ -28,22 +18,6 @@ public class GoalscorerItem{
 
 	public String getAwayAssist(){
 		return awayAssist;
-	}
-
-	public String getHomeAssistId(){
-		return homeAssistId;
-	}
-
-	public String getAwayAssistId(){
-		return awayAssistId;
-	}
-
-	public String getAwayScorerId(){
-		return awayScorerId;
-	}
-
-	public String getScoreInfoTime(){
-		return scoreInfoTime;
 	}
 
 	public String getTime(){
@@ -58,7 +32,4 @@ public class GoalscorerItem{
 		return homeScorer;
 	}
 
-	public String getInfo(){
-		return info;
-	}
 }

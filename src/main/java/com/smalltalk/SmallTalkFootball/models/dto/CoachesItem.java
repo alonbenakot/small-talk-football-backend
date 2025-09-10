@@ -1,19 +1,10 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
-public class CoachesItem{
-	private String coachAge;
-	private String coachName;
-	private String coachCountry;
+public class CoachesItem {
 
-	public String getCoachAge(){
-		return coachAge;
-	}
+    private String coachName;
 
-	public String getCoachName(){
-		return coachName;
-	}
-
-	public String getCoachCountry(){
-		return coachCountry;
-	}
+    public String getCoachName() {
+        return coachName;
+    }
 }
