@@ -3,6 +3,7 @@ package com.smalltalk.SmallTalkFootball.services;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.models.dto.CompetitionDto;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.system.utils.ResponseHandler;
@@ -38,7 +39,7 @@ public class FootballApiService {
                 .toList();
     }
 
-    public List<Object> getCompetitionData() {
+    public List<CompetitionDto> getCompetitionData() {
         return ResponseHandler.process(
                 () -> restClient.get()
                         .uri(uriBuilder -> uriBuilder
@@ -48,7 +49,7 @@ public class FootballApiService {
                         .retrieve()
                         .toEntity(String.class),
                 "Failed fetching competitions data",
-                new TypeReference<List<Object>>() {
+                new TypeReference<List<CompetitionDto>>() {
                 },
                 objectMapper
         ).toList();
