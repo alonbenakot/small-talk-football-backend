@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.enums.Role;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
+import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

@@ -7,6 +7,7 @@ import com.smalltalk.SmallTalkFootball.models.dto.CompetitionDto;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.system.utils.ResponseHandler;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -25,11 +26,12 @@ public class FootballApiService {
 
     private final String apiKey;
 
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper apiClientObjectMapper;
 
-    public FootballApiService(RestClient.Builder builder, @Value("${api.football.key}") String apiKey, ObjectMapper objectMapper) {
+    public FootballApiService(RestClient.Builder builder, @Value("${api.football.key}") String apiKey,
+                              @Qualifier("apiClient") ObjectMapper apiClientObjectMapper) {
         this.apiKey = apiKey;
-        this.objectMapper = objectMapper;
+        this.apiClientObjectMapper = apiClientObjectMapper;
         this.restClient = builder.baseUrl(BASE_URL).build();
     }
 
@@ -51,7 +53,7 @@ public class FootballApiService {
                 "Failed fetching competitions data",
                 new TypeReference<List<CompetitionDto>>() {
                 },
-                objectMapper
+                apiClientObjectMapper
         ).toList();
     }
 
@@ -68,7 +70,7 @@ public class FootballApiService {
                         "Failed fetching " + competition + " team data",
                         new TypeReference<List<TeamDataDto>>() {
                         },
-                        objectMapper)
+                        apiClientObjectMapper)
                 .toList();
     }
 
@@ -87,7 +89,7 @@ public class FootballApiService {
                 "Failed fetching " + competition + " matches",
                 new TypeReference<List<MatchDto>>() {
                 },
-                objectMapper
+                apiClientObjectMapper
         );
     }
 
