@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.config;
 
 import com.smalltalk.SmallTalkFootball.services.UserService;
+import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;

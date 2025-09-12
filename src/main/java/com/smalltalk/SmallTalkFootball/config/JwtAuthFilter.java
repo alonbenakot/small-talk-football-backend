@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.enums.Role;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
+import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -74,7 +75,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         return DELETE.equals(method)
                 || "articles/pending".equals(uri)
-                || (uri.startsWith("/articles/") && PATCH.equals(method));
+                || (uri.startsWith("/articles/") && PATCH.equals(method))
+                || uri.startsWith("/teams");
     }
 
     private static boolean isJwtRequired(HttpServletRequest request) {
@@ -82,7 +84,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         return DELETE.equals(method)
                 || isJwtRequiredSmallInfos(uri, method)
-                || isJwtRequiredArticles(uri, method);
+                || isJwtRequiredArticles(uri, method)
+                || isJwtRequiredTeams(uri);
     }
 
     private boolean isAuthHeaderValid(HttpServletRequest request) {
@@ -96,6 +99,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static boolean isJwtRequiredArticles(String uri, String method) {
         return uri.startsWith("/articles") && (POST.equals(method) || PATCH.equals(method));
+    }
+
+    private static boolean isJwtRequiredTeams(String uri) {
+        return uri.startsWith("/teams");
     }
 
     private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {

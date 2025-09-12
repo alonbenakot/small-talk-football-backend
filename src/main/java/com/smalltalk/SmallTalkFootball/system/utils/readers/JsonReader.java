@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.system.utils;
+package com.smalltalk.SmallTalkFootball.system.utils.readers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
