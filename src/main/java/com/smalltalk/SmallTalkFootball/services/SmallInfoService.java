@@ -6,7 +6,7 @@ import com.smalltalk.SmallTalkFootball.repositories.SmallInfoRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallInfoException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
-import com.smalltalk.SmallTalkFootball.system.utils.SmallInfosReader;
+import com.smalltalk.SmallTalkFootball.system.utils.readers.SmallInfosReader;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
