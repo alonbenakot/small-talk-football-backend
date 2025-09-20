@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.domain;
 
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.Goal;
+import com.smalltalk.SmallTalkFootball.models.OneLiner;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 @Builder
 @Document
@@ -34,7 +35,7 @@ public class Fixture {
 
     private Team awayTeam;
 
-    private List<Goal> goals;
+    private List<Goal> goals = new ArrayList<>();
 
     private int durationInMinutes;
 
@@ -43,5 +44,28 @@ public class Fixture {
     private LocalDateTime matchDateTime;
 
     private boolean finished;
+
+    private Set<OneLiner> oneLiners = new HashSet<>();
+
+    public Set<OneLiner> getOneLiners() {
+        return Collections.unmodifiableSet(oneLiners);
+    }
+
+    /**
+     * Add a one-liner only if it does not already exist for this team/language.
+     * Existing entries remain untouched.
+     */
+    public boolean addOneLiner(OneLiner oneLiner) {
+        return oneLiners.add(oneLiner);
+    }
+
+    /**
+     * Replace any existing one-liner for this team/language with the new one.
+     * Always ensures the Set contains the latest.
+     */
+    public void replaceOneLiner(OneLiner oneLiner) {
+        oneLiners.remove(oneLiner);
+        oneLiners.add(oneLiner);
+    }
 
 }

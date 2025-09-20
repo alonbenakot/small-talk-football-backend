@@ -20,6 +20,7 @@ public class ArticleController {
     private final ArticleService service;
 
     @GetMapping("/published")
+    @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<SmallTalkResponse<List<Article>>> getPublishedArticles() {
         List<Article> publishedArticles = service.getPublishedArticles();
         if (publishedArticles.isEmpty()) {
@@ -30,6 +31,7 @@ public class ArticleController {
     }
 
     @GetMapping("/pending")
+    @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<SmallTalkResponse<List<Article>>> getPendingArticles() {
         List<Article> pendingArticles = service.getPendingArticles();
         if (pendingArticles.isEmpty()) {

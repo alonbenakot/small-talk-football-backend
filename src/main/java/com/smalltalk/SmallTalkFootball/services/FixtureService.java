@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,6 +43,10 @@ public class FixtureService {
         return repo.findAll();
     }
 
+    public Optional<Fixture> getFixture(String id) {
+        return repo.findById(id);
+    }
+
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {
         List<TeamData> allTeamsData = teamService.getTeamsData();
         Set<Integer> externalIds = getFixturesExternalIds(earliestMatchDay);
@@ -62,6 +67,9 @@ public class FixtureService {
 
     public void deleteAllFixtures() {
         repo.deleteAll();
+    }
+
+    public void saveFixture(Fixture fixture) {repo.save(fixture);
     }
 
     private Set<Integer> getFixturesExternalIds(LocalDate earliestMatchDay) {
