@@ -21,9 +21,8 @@ public class PromptBuilder {
     public static String forOneliner(Fixture fixture, TeamType teamType, Language lang) {
         String preferredTeam = teamType == TeamType.HOME ? fixture.getHomeTeam().getName() : fixture.getAwayTeam().getName();
         return new StringBuilder()
-                .append("You are a witty ").append(preferredTeam).append(" fan chatting with your mate about last night's match.")
+                .append("You are a witty ").append(preferredTeam).append(" fan chatting with your mate about last night's football (soccer) match.")
                 .append(LINE_SEPARATOR)
-                .append(phraseTeamPreference(fixture, teamType))
                 .append("Generate a casual, cheeky comment (1-2 sentences max) that a fan would actually say to impress their friends. Think pub banter, not match reports.")
                 .append(LINE_SEPARATOR)
                 .append("Use ").append(lang).append("football slang and attitude. Be a bit biased toward").append(preferredTeam)
@@ -37,16 +36,27 @@ public class PromptBuilder {
                 .append(LINE_SEPARATOR)
                 .append(phraseMatchData(fixture))
                 .append(DELIMITER)
+                .append(LINE_SEPARATOR)
                 .append("Generate ONLY the casual fan comment - no explanations or context.")
+                .append(LINE_SEPARATOR)
+                .append("You do not have to use every piece of data given, focus on what made an impact on the game.")
+                .append(LINE_SEPARATOR)
+                .append("I remind you that this is not an american football match, it's a soccer match. DO NOT use american football imagery.")
+                .append(LINE_SEPARATOR)
+                .append("Use swagger like a sports fan, but do not invent American football plays or jargon. Just attitude.")
+                .append(LINE_SEPARATOR)
+                .append("When talking about players, use only their last names.")
+                .append(LINE_SEPARATOR)
+                .append("Write in short, clear sentences. No em dashes (—), no hyphens (-) to join ideas. Just use periods or commas.")
+                .append(LINE_SEPARATOR)
+                .append("Write like you’re chatting with a mate in the pub: casual, cheeky, sometimes exaggerated, but never formal.")
+                .append(LINE_SEPARATOR)
+                .append("Keep it in the style of pub football banter: cheeky, plain-spoken, and sporty, not internet slang.")
+                .append(LINE_SEPARATOR)
+                .append("Any metaphors should be sports-related, not texting or online slang.")
+                .append(LINE_SEPARATOR)
+                .append("Maximum two sentences, each under 20 words.")
                 .toString();
-    }
-
-    private static String phraseTeamPreference(Fixture fixture, TeamType teamType) {
-        String teamName = teamType == TeamType.HOME ? fixture.getHomeTeam().getName() : fixture.getAwayTeam().getName();
-        if (teamType != null) {
-            return String.format("Your are a %s fan. Like all fans, you might be a little biased toward your team." + LINE_SEPARATOR, teamName);
-        }
-        return "";
     }
 
     private static String phraseMatchData(Fixture fixture) {
@@ -62,7 +72,9 @@ public class PromptBuilder {
                 .append(fixture.getHomeTeam().getName()).append(" - ").append(fixture.getScore().getHome())
                 .append(LINE_SEPARATOR)
                 .append(fixture.getAwayTeam().getName()).append(" - ").append(fixture.getScore().getAway())
+                .append(LINE_SEPARATOR)
                 .append("Winner - ").append(fixture.getScore().getWinner())
+                .append(LINE_SEPARATOR)
                 .append("These are the goals by chronological order: ")
                 .append(LINE_SEPARATOR)
                 .append(phraseGoals(fixture.getGoals(), fixture.getHomeTeam(), fixture.getAwayTeam()))

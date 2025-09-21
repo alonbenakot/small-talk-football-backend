@@ -44,7 +44,11 @@ public class FixtureService {
     }
 
     public Optional<Fixture> getFixture(String id) {
-        return repo.findById(id);
+        // Add timing around just the repository call
+        long start = System.currentTimeMillis();
+        Optional<Fixture> result = repo.findById(id);
+        System.out.println("MongoDB findById took: " + (System.currentTimeMillis() - start) + "ms");
+        return result;
     }
 
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {

@@ -27,17 +27,12 @@ public class OneLinersService {
         return fixture.getOneLiners().stream()
                 .filter(oneLiner -> matchesTeamAndLanguage(teamType, lang, oneLiner))
                 .findAny()
-                .orElse(generateOneLiner(teamType, lang, fixture));
+                .orElseGet(() -> generateOneLiner(teamType, lang, fixture));
     }
 
-    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture) throws SmallTalkException {
+    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture){
         String promptText = PromptBuilder.forOneliner(fixture, teamType, lang);
-        log.debug(promptText);
         String oneLinerText = aiService.generate(promptText);
-
-        if (oneLinerText == null || oneLinerText.isBlank()) {
-            throw new SmallTalkException("AI failed to generate one-liner");
-        }
 
         OneLiner oneLiner = OneLiner.builder()
                 .text(oneLinerText)
@@ -51,6 +46,8 @@ public class OneLinersService {
     }
 
     private static boolean matchesTeamAndLanguage(TeamType teamType, Language lang, OneLiner oneLiner) {
-        return oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
+        boolean match = oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
+        log.debug("match: " + match);
+        return match;
     }
 }
