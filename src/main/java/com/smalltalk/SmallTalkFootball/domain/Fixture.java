@@ -1,10 +1,7 @@
 package com.smalltalk.SmallTalkFootball.domain;
 
 import com.smalltalk.SmallTalkFootball.enums.Competition;
-import com.smalltalk.SmallTalkFootball.models.Goal;
-import com.smalltalk.SmallTalkFootball.models.OneLiner;
-import com.smalltalk.SmallTalkFootball.models.Score;
-import com.smalltalk.SmallTalkFootball.models.Team;
+import com.smalltalk.SmallTalkFootball.models.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -45,10 +42,13 @@ public class Fixture {
 
     private boolean finished;
 
+    private List<Statistic> statistics = new ArrayList<>();
+
     private Set<OneLiner> oneLiners = new HashSet<>();
 
     public Set<OneLiner> getOneLiners() {
-        return Collections.unmodifiableSet(oneLiners);
+        return oneLiners == null ? Collections.emptySet()
+                : Collections.unmodifiableSet(oneLiners);
     }
 
     /**

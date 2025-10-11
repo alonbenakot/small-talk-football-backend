@@ -21,6 +21,17 @@ public class MatchDto {
 	private String matchHometeamName;
 	private String leagueId;
 	private String teamAwayBadge;
+	private SubstitutionsDto substitutions;
+
+	public SubstitutionsDto getSubstitutions() {
+		return substitutions;
+	}
+
+	public List<StatisticDto> getStatistics() {
+		return statistics;
+	}
+
+	private List<StatisticDto> statistics;
 
 	public String getMatchAwayTeamName(){
 		return matchAwayteamName;

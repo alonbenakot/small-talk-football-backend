@@ -4,6 +4,7 @@ import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
+import com.smalltalk.SmallTalkFootball.models.Statistic;
 import com.smalltalk.SmallTalkFootball.models.Team;
 
 import java.util.List;
@@ -13,9 +14,10 @@ public class PromptBuilder {
     private static final String DELIMITER = "######################################";
     private static final String LINE_SEPARATOR = System.lineSeparator();
     private static final String EXAMPLE = """
-            Did you see that ludicrous display last night?
-            What was Wenger thinking?
-            The thing about Arsenal is, they always try an' walk it in.
+            1. City destroyed United 3-0, but still had passed around the goal way too much.
+            2. That Haaland, he's a monster. No one can stop him.
+            3. Its nice that Brentford took 20 shots on goal, but when non of them hit the back of the net it doesn't really matter.
+            4. City always holds the ball forever but the point is to score goals, not hold the ball.
             """;
 
     public static String forOneliner(Fixture fixture, TeamType teamType, Language lang) {
@@ -23,23 +25,14 @@ public class PromptBuilder {
         return new StringBuilder()
                 .append("You are a witty ").append(preferredTeam).append(" fan chatting with your mate about last night's football (soccer) match.")
                 .append(LINE_SEPARATOR)
-                .append("Generate a casual, cheeky comment (1-2 sentences max) that a fan would actually say to impress their friends. Think pub banter, not match reports.")
+                .append("Generate a casual comment (1-2 sentences max) that a fan say to would say when talking to friends. Think friendly fan banter, not match reports.")
                 .append(LINE_SEPARATOR)
                 .append("Use ").append(lang).append("football slang and attitude. Be a bit biased toward").append(preferredTeam)
-                .append(LINE_SEPARATOR)
-                .append("Examples of the tone you want:")
-                .append(LINE_SEPARATOR)
-                .append(EXAMPLE)
-                .append("Match data: ")
-                .append(LINE_SEPARATOR)
-                .append(DELIMITER)
-                .append(LINE_SEPARATOR)
-                .append(phraseMatchData(fixture))
-                .append(DELIMITER)
-                .append(LINE_SEPARATOR)
                 .append("Generate ONLY the casual fan comment - no explanations or context.")
                 .append(LINE_SEPARATOR)
                 .append("You do not have to use every piece of data given, focus on what made an impact on the game.")
+                .append(LINE_SEPARATOR)
+                .append("When using statistics, you might have received data with duplicate types. Use only the one that seems the most updated.")
                 .append(LINE_SEPARATOR)
                 .append("I remind you that this is not an american football match, it's a soccer match. DO NOT use american football imagery.")
                 .append(LINE_SEPARATOR)
@@ -49,13 +42,35 @@ public class PromptBuilder {
                 .append(LINE_SEPARATOR)
                 .append("Write in short, clear sentences. No em dashes (—), no hyphens (-) to join ideas. Just use periods or commas.")
                 .append(LINE_SEPARATOR)
-                .append("Write like you’re chatting with a mate in the pub: casual, cheeky, sometimes exaggerated, but never formal.")
+                .append("Write like you’re chatting with a friend in the pub or at the office: casual, clever, sometimes a bit exaggerated")
                 .append(LINE_SEPARATOR)
-                .append("Keep it in the style of pub football banter: cheeky, plain-spoken, and sporty, not internet slang.")
+                .append("Keep it in the style of football banter: plain-spoken, and sporty, not internet slang.")
                 .append(LINE_SEPARATOR)
                 .append("Any metaphors should be sports-related, not texting or online slang.")
                 .append(LINE_SEPARATOR)
                 .append("Maximum two sentences, each under 20 words.")
+                .append(LINE_SEPARATOR)
+                .append("Do not break lines at the end of sentences.")
+                .append(LINE_SEPARATOR)
+                .append("Use the team names, not \"we\"\\\"they\".")
+                .append(LINE_SEPARATOR)
+                .append("Mention each goal or match event only once. Do not rephrase or repeat the same moment in another sentence.")
+                .append(LINE_SEPARATOR)
+                .append("Tell the events in the order they happened — do not jump back and forth in time.")
+                .append(LINE_SEPARATOR)
+                .append("Do not imply extra goals or comeback moments beyond the listed ones. If the equalizer secured the result, state it clearly without suggesting another event happened.")
+                .append(LINE_SEPARATOR)
+                .append("DO NOT SIMPLY REPORT MATCH EVENTS, you are sharing your overall experience from the match!")
+                .append(LINE_SEPARATOR)
+                .append("Examples one-liners:")
+                .append(LINE_SEPARATOR)
+                .append(EXAMPLE)
+                .append("Match data: ")
+                .append(LINE_SEPARATOR)
+                .append(DELIMITER)
+                .append(LINE_SEPARATOR)
+                .append(phraseMatchData(fixture))
+                .append(DELIMITER)
                 .toString();
     }
 
@@ -64,8 +79,6 @@ public class PromptBuilder {
                 .append("This is a ").append(fixture.getCompetition().toString()).append(" match between ")
                 .append(fixture.getHomeTeam().getName()).append(" (home) ")
                 .append("and ").append(fixture.getAwayTeam().getName()).append(" (away)")
-                .append(LINE_SEPARATOR)
-                .append("The match is being held at ").append(fixture.getVenue())
                 .append(LINE_SEPARATOR)
                 .append("Final score: ")
                 .append(LINE_SEPARATOR)
@@ -79,8 +92,24 @@ public class PromptBuilder {
                 .append(LINE_SEPARATOR)
                 .append(phraseGoals(fixture.getGoals(), fixture.getHomeTeam(), fixture.getAwayTeam()))
                 .append(LINE_SEPARATOR)
+                .append(phraseStatistics(fixture.getStatistics()))
+                .append(LINE_SEPARATOR)
                 .toString();
 
+    }
+
+    private static String phraseStatistics(List<Statistic> statistics) {
+        StringBuilder statsSummary = new StringBuilder();
+        statsSummary.append("These are the match statistics: ");
+        statistics.forEach(statistic -> statsSummary
+                .append(LINE_SEPARATOR)
+                .append(statistic.getType())
+                .append(LINE_SEPARATOR)
+                .append("Home team - ").append(statistic.getHome()).append(statistic.isPercentage() ? "%" : "")
+                .append(LINE_SEPARATOR)
+                .append("Away team - ").append(statistic.getAway()).append(statistic.isPercentage() ? "%" : "")
+        );
+        return statsSummary.toString();
     }
 
     private static String phraseGoals(List<Goal> goals, Team homeTeam, Team awayTeam) {

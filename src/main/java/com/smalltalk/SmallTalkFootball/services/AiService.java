@@ -23,19 +23,16 @@ public class AiService {
             Prompt prompt = new Prompt(promptText, options);
 
             log.debug("Sending prompt: {}", promptText);
-            var response = client.call(prompt);
-            log.debug("Response: {}", response);
 
-            var result = response.getResult();
-            log.debug("Result: {}", result);
+            long start = System.currentTimeMillis();
+            String text = client.call(prompt).getResult().getOutput().getText();
+            long end = System.currentTimeMillis();
+            log.warn("AI call took {} ms", (end - start));
 
-            var output = result.getOutput();
-            log.debug("Output: {}", output);
-
-            String text = output.getText();
             log.debug("Generated text: '{}'", text);
 
             return text;
+
         } catch (Exception e) {
             log.error("Error calling AI service", e);
             throw e;
