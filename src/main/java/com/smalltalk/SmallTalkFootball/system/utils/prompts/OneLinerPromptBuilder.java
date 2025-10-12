@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.system.utils;
+package com.smalltalk.SmallTalkFootball.system.utils.prompts;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.enums.Language;
@@ -9,11 +9,65 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 
 import java.util.List;
 
-public class PromptBuilder {
+public class OneLinerPromptBuilder implements PromptBuilder{
+
+    private Fixture fixture;
+    private Language language;
+    private String preferredTeam;
+
+    public OneLinerPromptBuilder(Fixture fixture, TeamType teamType, Language language) {
+        this.fixture = fixture;
+        this.language = language;
+        setPreferredTeam(teamType);
+
+    }
+
+    public void setPreferredTeam(TeamType teamType) {
+        this.preferredTeam = teamType == null
+                ? ""
+                : teamType == TeamType.HOME ? fixture.getHomeTeam().getName() : fixture.getAwayTeam().getName();
+    }
+
+    @Override
+    public String role() {
+        return """
+                You are a witty %s fan chatting with your mate about last night's football (soccer) match.
+                """.formatted(preferredTeam);
+    }
+
+    @Override
+    public String task() {
+        return null;
+    }
+
+    @Override
+    public String style() {
+        return null;
+    }
+
+    @Override
+    public String structure() {
+        return null;
+    }
+
+    @Override
+    public String constraints() {
+        return null;
+    }
+
+    @Override
+    public String examples() {
+        return EXAMPLES;
+    }
+
+    @Override
+    public String data() {
+        return phraseMatchData(fixture);
+    }
 
     private static final String DELIMITER = "######################################";
     private static final String LINE_SEPARATOR = System.lineSeparator();
-    private static final String EXAMPLE = """
+    private static final String EXAMPLES = """
             1. City destroyed United 3-0, but still had passed around the goal way too much.
             2. That Haaland, he's a monster. No one can stop him.
             3. Its nice that Brentford took 20 shots on goal, but when non of them hit the back of the net it doesn't really matter.
@@ -64,7 +118,7 @@ public class PromptBuilder {
                 .append(LINE_SEPARATOR)
                 .append("Examples one-liners:")
                 .append(LINE_SEPARATOR)
-                .append(EXAMPLE)
+                .append(EXAMPLES)
                 .append("Match data: ")
                 .append(LINE_SEPARATOR)
                 .append(DELIMITER)
@@ -89,7 +143,6 @@ public class PromptBuilder {
                 .append("Winner - ").append(fixture.getScore().getWinner())
                 .append(LINE_SEPARATOR)
                 .append("These are the goals by chronological order: ")
-                .append(LINE_SEPARATOR)
                 .append(phraseGoals(fixture.getGoals(), fixture.getHomeTeam(), fixture.getAwayTeam()))
                 .append(LINE_SEPARATOR)
                 .append(phraseStatistics(fixture.getStatistics()))
@@ -129,4 +182,5 @@ public class PromptBuilder {
 
         return goalsSummary.toString();
     }
+
 }

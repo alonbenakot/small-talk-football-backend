@@ -5,7 +5,7 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
-import com.smalltalk.SmallTalkFootball.system.utils.PromptBuilder;
+import com.smalltalk.SmallTalkFootball.system.utils.prompts.OneLinerPromptBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ public class OneLinersService {
     }
 
     private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture){
-        String promptText = PromptBuilder.forOneliner(fixture, teamType, lang);
+        String promptText = OneLinerPromptBuilder.forOneliner(fixture, teamType, lang);
         String oneLinerText = aiService.generate(promptText);
 
         OneLiner oneLiner = OneLiner.builder()
