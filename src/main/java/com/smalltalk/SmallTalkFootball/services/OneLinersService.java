@@ -6,6 +6,7 @@ import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.prompts.OneLinerPromptBuilder;
+import com.smalltalk.SmallTalkFootball.system.utils.prompts.PromptBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,6 @@ public class OneLinersService {
     public OneLiner getOneLiner(String fixtureId, TeamType teamType, Language lang) throws SmallTalkException {
         Fixture fixture = fixtureService.getFixture(fixtureId).orElseThrow(() -> new SmallTalkException("Invalid fixture id"));
 
-
         return fixture.getOneLiners().stream()
                 .filter(oneLiner -> matchesTeamAndLanguage(teamType, lang, oneLiner))
                 .findAny()
@@ -31,7 +31,8 @@ public class OneLinersService {
     }
 
     private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture){
-        String promptText = OneLinerPromptBuilder.forOneliner(fixture, teamType, lang);
+        PromptBuilder promptBuilder = new OneLinerPromptBuilder(fixture, teamType, lang);
+        String promptText = promptBuilder.buildPrompt();
         String oneLinerText = aiService.generate(promptText);
 
         OneLiner oneLiner = OneLiner.builder()

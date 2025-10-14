@@ -19,7 +19,9 @@ public class OneLinerController {
 
     @GetMapping("/{fixtureId}")
     @ResponseStatus(HttpStatus.OK)
-    public SmallTalkResponse<OneLiner> getOneLiner(@PathVariable String fixtureId, @RequestParam TeamType teamType, @RequestParam Language lang) throws SmallTalkException {
+    public SmallTalkResponse<OneLiner> getOneLiner(@PathVariable String fixtureId,
+                                                   @RequestParam(required = false) TeamType teamType,
+                                                   @RequestParam Language lang) throws SmallTalkException {
         return new SmallTalkResponse<>(service.getOneLiner(fixtureId, teamType, lang));
     }
 }

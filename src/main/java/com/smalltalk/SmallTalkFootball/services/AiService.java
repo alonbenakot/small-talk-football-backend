@@ -17,7 +17,7 @@ public class AiService {
     public String generate(String promptText) {
         try {
             var options = OpenAiChatOptions.builder()
-                    .reasoningEffort("medium")
+                    .reasoningEffort("low")
                     .temperature(1.0)
                     .build();
             Prompt prompt = new Prompt(promptText, options);

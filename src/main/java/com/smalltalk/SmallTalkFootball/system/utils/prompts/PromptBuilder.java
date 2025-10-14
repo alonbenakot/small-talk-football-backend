@@ -7,13 +7,15 @@ public interface PromptBuilder {
                 %s
                 
                 Your task:
-                
                 %s
                 
                 Follow these rules:
-                - Tone and Style: %s
-                - Structure: %s
-                - Constraints: %s
+                - Tone and Style: 
+                    %s
+                - Structure:
+                    %s
+                - Constraints:
+                    %s
                 
                 Examples:
                 %s
@@ -21,8 +23,8 @@ public interface PromptBuilder {
                 Your data:
                 ##############################
                 %s
-                ##############################
-                """.formatted(role(), task(), style(), structure(), constraints(), examples(), data());
+                ##############################"""
+                .formatted(role(), task(), style(), structure(), constraints(), examples(), data());
 
 
     }

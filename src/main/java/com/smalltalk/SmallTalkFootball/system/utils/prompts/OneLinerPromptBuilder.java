@@ -9,7 +9,7 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 
 import java.util.List;
 
-public class OneLinerPromptBuilder implements PromptBuilder{
+public class OneLinerPromptBuilder implements PromptBuilder {
 
     private Fixture fixture;
     private Language language;
@@ -31,33 +31,37 @@ public class OneLinerPromptBuilder implements PromptBuilder{
     @Override
     public String role() {
         return """
-                You are a witty %s fan chatting with your mate about last night's football (soccer) match.
+                You are a %s fan chatting with your friends about last night's football (soccer) match.
                 """.formatted(preferredTeam);
     }
 
     @Override
     public String task() {
-        return null;
+        return "Generate a casual fan comment reacting to the match.";
     }
 
     @Override
     public String style() {
-        return null;
+        return "%s english , slightly biased toward %s, casual friendly banter.".formatted(language, preferredTeam);
     }
 
     @Override
     public String structure() {
-        return null;
+        return "1-2 sentences, under 20 words each, no line breaks, no emojis.";
     }
 
     @Override
     public String constraints() {
-        return null;
+        return "No match reports, no invented events, no repeated stats or moments.";
     }
 
     @Override
     public String examples() {
-        return EXAMPLES;
+        return """
+                1. City destroyed United 3-0, but still had passed around the goal way too much.
+                2. That Haaland, he's a monster. No one can stop him.
+                3. Its nice that Brentford took 20 shots on goal, but when non of them hit the back of the net it doesn't really matter.
+                4. City always holds the ball forever but the point is to score goals, not hold the ball.""";
     }
 
     @Override
@@ -71,8 +75,7 @@ public class OneLinerPromptBuilder implements PromptBuilder{
             1. City destroyed United 3-0, but still had passed around the goal way too much.
             2. That Haaland, he's a monster. No one can stop him.
             3. Its nice that Brentford took 20 shots on goal, but when non of them hit the back of the net it doesn't really matter.
-            4. City always holds the ball forever but the point is to score goals, not hold the ball.
-            """;
+            4. City always holds the ball forever but the point is to score goals, not hold the ball.""";
 
     public static String forOneliner(Fixture fixture, TeamType teamType, Language lang) {
         String preferredTeam = teamType == TeamType.HOME ? fixture.getHomeTeam().getName() : fixture.getAwayTeam().getName();
@@ -167,19 +170,24 @@ public class OneLinerPromptBuilder implements PromptBuilder{
 
     private static String phraseGoals(List<Goal> goals, Team homeTeam, Team awayTeam) {
         StringBuilder goalsSummary = new StringBuilder();
-        goals.forEach(goal -> goalsSummary
-                .append(LINE_SEPARATOR)
-                .append("At the minute: ").append(goal.getMinute())
-                .append(LINE_SEPARATOR)
-                .append("Goal by ").append(goal.getGoalBy()).append(" for ").append(goal.getTeamName())
-                .append(LINE_SEPARATOR)
-                .append("Assist by ").append(goal.getAssistBy())
-                .append(LINE_SEPARATOR)
-                .append("Puts the score at: ")
-                .append(goal.getHomeScore()).append(" for ").append(homeTeam.getName())
-                .append(" and ").append(goal.getAwayScore()).append(" for ").append(awayTeam.getName())
-        );
+        goals.forEach(goal -> {
+            goalsSummary
+                    .append(LINE_SEPARATOR)
+                    .append("At the minute: ").append(goal.getMinute())
+                    .append(LINE_SEPARATOR)
+                    .append("Goal by ").append(goal.getGoalBy()).append(" for ").append(goal.getTeamName())
+                    .append(LINE_SEPARATOR);
 
+            if (goal.getAssistBy() != null && !goal.getAssistBy().isBlank()) {
+                goalsSummary.append("Assist by ").append(goal.getAssistBy())
+                        .append(LINE_SEPARATOR);
+            }
+
+            goalsSummary
+                    .append("Puts the score at: ")
+                    .append(goal.getHomeScore()).append(" for ").append(homeTeam.getName())
+                    .append(" and ").append(goal.getAwayScore()).append(" for ").append(awayTeam.getName());
+        });
         return goalsSummary.toString();
     }
 
