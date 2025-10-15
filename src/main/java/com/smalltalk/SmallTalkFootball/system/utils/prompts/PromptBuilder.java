@@ -22,9 +22,10 @@ public interface PromptBuilder {
                 
                 Your data:
                 ##############################
+                
                 %s
-                ##############################"""
-                .formatted(role(), task(), style(), structure(), constraints(), examples(), data());
+                
+                ##############################""".formatted(role(), task(), style(), structure(), constraints(), examples(), data());
 
 
     }
