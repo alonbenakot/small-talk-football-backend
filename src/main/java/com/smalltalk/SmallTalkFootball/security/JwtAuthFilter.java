@@ -1,11 +1,10 @@
-package com.smalltalk.SmallTalkFootball.config;
+package com.smalltalk.SmallTalkFootball.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.enums.Role;
 import com.smalltalk.SmallTalkFootball.services.UserService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
-import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,7 +75,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return DELETE.equals(method)
                 || "articles/pending".equals(uri)
                 || (uri.startsWith("/articles/") && PATCH.equals(method))
-                || uri.startsWith("/teams");
+                || uri.startsWith("/teams")
+                || uri.startsWith("/fixtures") && POST.equals(method);
     }
 
     private static boolean isJwtRequired(HttpServletRequest request) {
@@ -85,7 +85,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return DELETE.equals(method)
                 || isJwtRequiredSmallInfos(uri, method)
                 || isJwtRequiredArticles(uri, method)
-                || isJwtRequiredTeams(uri);
+                || isJwtRequiredTeams(uri)
+                || isJwtRequiredFixtures(uri, method);
     }
 
     private boolean isAuthHeaderValid(HttpServletRequest request) {
@@ -99,6 +100,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static boolean isJwtRequiredArticles(String uri, String method) {
         return uri.startsWith("/articles") && (POST.equals(method) || PATCH.equals(method));
+    }
+
+    private static boolean isJwtRequiredFixtures(String uri, String method) {
+        return uri.startsWith("/fixtures") && POST.equals(method);
     }
 
     private static boolean isJwtRequiredTeams(String uri) {

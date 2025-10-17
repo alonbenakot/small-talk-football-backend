@@ -1,4 +1,4 @@
-package com.smalltalk.SmallTalkFootball.system.utils;
+package com.smalltalk.SmallTalkFootball.security;
 
 import com.smalltalk.SmallTalkFootball.domain.User;
 import io.jsonwebtoken.*;

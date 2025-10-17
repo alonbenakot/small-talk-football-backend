@@ -2,6 +2,8 @@ package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
+import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.models.FixturesResponse;
 import com.smalltalk.SmallTalkFootball.repositories.FixtureRepository;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.FixtureMapper;
 import lombok.AllArgsConstructor;
@@ -10,9 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,8 +39,10 @@ public class FixtureService {
 
     }
 
-    public List<Fixture> getFixtures() {
-        return repo.findAll();
+    public FixturesResponse getFixtures() {
+        List<Fixture> fixtures = repo.findAll();
+        fixtures.sort(Comparator.comparing(Fixture::getCompetition));
+        return new FixturesResponse(Arrays.asList(Competition.values()), fixtures);
     }
 
     public Optional<Fixture> getFixture(String id) {

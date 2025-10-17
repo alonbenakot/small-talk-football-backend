@@ -10,7 +10,7 @@ public interface PromptBuilder {
                 %s
                 
                 Follow these rules:
-                - Tone and Style: 
+                - Tone and Style:
                     %s
                 - Structure:
                     %s

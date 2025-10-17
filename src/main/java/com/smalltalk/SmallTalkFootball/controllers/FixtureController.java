@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.models.FixturesResponse;
 import com.smalltalk.SmallTalkFootball.services.FixtureService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ public class FixtureController {
 
     @GetMapping()
     @ResponseStatus(HttpStatus.OK)
-    public SmallTalkResponse<List<Fixture>> getFixtures() {
+    public SmallTalkResponse<FixturesResponse> getFixtures() {
         return new SmallTalkResponse<>(service.getFixtures());
     }
 
