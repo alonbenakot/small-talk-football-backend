@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.FixturesResponse;
 import com.smalltalk.SmallTalkFootball.repositories.FixtureRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.FixtureMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +46,8 @@ public class FixtureService {
         return new FixturesResponse(Arrays.asList(Competition.values()), fixtures);
     }
 
-    public Optional<Fixture> getFixture(String id) {
-        // Add timing around just the repository call
-        long start = System.currentTimeMillis();
-        Optional<Fixture> result = repo.findById(id);
-        System.out.println("MongoDB findById took: " + (System.currentTimeMillis() - start) + "ms");
-        return result;
+    public Fixture getFixture(String id) throws SmallTalkException {
+        return repo.findById(id).orElseThrow(() -> new SmallTalkException("Invalid fixture id"));
     }
 
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {
@@ -75,7 +72,8 @@ public class FixtureService {
         repo.deleteAll();
     }
 
-    public void saveFixture(Fixture fixture) {repo.save(fixture);
+    public void saveFixture(Fixture fixture) {
+        repo.save(fixture);
     }
 
     private Set<Integer> getFixturesExternalIds(LocalDate earliestMatchDay) {

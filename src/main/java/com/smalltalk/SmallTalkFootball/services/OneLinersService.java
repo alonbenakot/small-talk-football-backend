@@ -22,7 +22,7 @@ public class OneLinersService {
     private final AiService aiService;
 
     public OneLiner getOneLiner(String fixtureId, TeamType teamType, Language lang) throws SmallTalkException {
-        Fixture fixture = fixtureService.getFixture(fixtureId).orElseThrow(() -> new SmallTalkException("Invalid fixture id"));
+        Fixture fixture = fixtureService.getFixture(fixtureId);
 
         return fixture.getOneLiners().stream()
                 .filter(oneLiner -> matchesTeamAndLanguage(teamType, lang, oneLiner))
