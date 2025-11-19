@@ -76,6 +76,7 @@ public class OneLinerPromptBuilder implements PromptBuilder {
         String goals = phraseGoals(fixture.getGoals(), fixture.getHomeTeam(), fixture.getAwayTeam());
         String stats = phraseStatistics(fixture.getStatistics());
         String winner = getWinner();
+        String coaches = getCoaches(fixture);
 
         String prompt = """
             This is a %s match between %s (home) and %s (away).
@@ -85,13 +86,24 @@ public class OneLinerPromptBuilder implements PromptBuilder {
             %s - %s
 
             %s
+            
+            %s
 
             These are the goals by chronological order:
             %s
 
             %s""";
 
-        return prompt.formatted(competition, home, away, home, score.getHome(), away, score.getAway(), winner, goals, stats);
+        return prompt.formatted(competition, home, away, home, score.getHome(), away, score.getAway(), coaches, winner, goals, stats);
+    }
+
+    private String getCoaches(Fixture fixture) {
+        Team homeTeam = fixture.getHomeTeam();
+        Team awayTeam = fixture.getAwayTeam();
+        return """
+                %s coach: %s
+                %s coach: %s"""
+                .formatted(homeTeam.getName(), homeTeam.getCoach(), awayTeam.getName(), awayTeam.getCoach());
     }
 
 

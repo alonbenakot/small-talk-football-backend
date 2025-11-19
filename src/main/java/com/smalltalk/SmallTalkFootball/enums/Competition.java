@@ -1,10 +1,13 @@
 package com.smalltalk.SmallTalkFootball.enums;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Getter
 public enum Competition {
     GHANA_PREMIER(177),
     NON_PREMIER(149);
@@ -20,10 +23,6 @@ public enum Competition {
 
     Competition(int code) {
         this.code = code;
-    }
-
-    public int getCode() {
-        return code;
     }
 
     private static final Map<Integer, Competition> CODE_MAP =
