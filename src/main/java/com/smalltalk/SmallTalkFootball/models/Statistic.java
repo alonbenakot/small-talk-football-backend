@@ -9,7 +9,7 @@ import lombok.ToString;
 @Getter
 public class Statistic {
     String type;
-    int home;
-    int away;
+    Integer home;
+    Integer away;
     boolean percentage;
 }

@@ -47,24 +47,40 @@ public class FixtureMapper {
     }
 
     private static Statistic mapSingleStatistic(StatisticDto stat) {
-        if (StatType.getStatTypesValue().contains(stat.getType())) {
-            return Statistic.builder()
-                    .type(stat.getType())
-                    .home(parseStatistic(stat.getHome()))
-                    .away(parseStatistic(stat.getAway()))
-                    .percentage(stat.getHome().contains("%"))
-                    .build();
+        if (!StatType.getStatTypesValue().contains(stat.getType())) {
+            return null;
         }
 
-        return null;
+        Integer home = parseStatistic(stat.getHome());
+        Integer away = parseStatistic(stat.getAway());
+
+        if (home == null || away == null) {
+            return null;
+        }
+
+        return Statistic.builder()
+                .type(stat.getType())
+                .home(home)
+                .away(away)
+                .percentage(stat.getHome().contains("%"))
+                .build();
     }
 
-    private static int parseStatistic(String teamStat) {
-        String newStat = teamStat
-                .replace("%", "")
+    private static Integer parseStatistic(String teamStat) {
+        if (teamStat == null) return null;
+
+        String cleaned = teamStat.replace("%", "")
                 .replace("[", "")
-                .replace("]", "");
-        return Integer.parseInt(newStat);
+                .replace("]", "")
+                .trim();
+
+        if (cleaned.isEmpty()) return null;
+
+        try {
+            return Integer.parseInt(cleaned);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static LocalDateTime mapTime(MatchDto matchDto) {

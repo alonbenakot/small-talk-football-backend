@@ -22,14 +22,11 @@ public class AiService {
                     .build();
             Prompt prompt = new Prompt(promptText, options);
 
-            log.debug("Sending prompt: {}", promptText);
+//            log.debug("Sending prompt: {}", promptText);
 
             long start = System.currentTimeMillis();
             String text = client.call(prompt).getResult().getOutput().getText();
             long end = System.currentTimeMillis();
-            log.warn("AI call took {} ms", (end - start));
-
-            log.debug("Generated text: '{}'", text);
 
             return text;
 
