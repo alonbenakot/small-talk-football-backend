@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class FixturesResponse {
 
-    private Competition competitions;
+    private List<Competition> competitions;
 
     private List<Fixture> fixtures;
 

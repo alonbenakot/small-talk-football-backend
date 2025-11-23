@@ -1,6 +1,6 @@
 package com.smalltalk.SmallTalkFootball.controllers;
 
-import com.smalltalk.SmallTalkFootball.system.utils.JwtUtil;
+import com.smalltalk.SmallTalkFootball.security.JwtUtil;
 import com.smalltalk.SmallTalkFootball.models.LoginInput;
 import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.models.UserResponse;

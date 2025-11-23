@@ -2,17 +2,21 @@ package com.smalltalk.SmallTalkFootball.system.utils.mappers;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.enums.StatType;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
+import com.smalltalk.SmallTalkFootball.models.Statistic;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.GoalscorerItem;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
+import com.smalltalk.SmallTalkFootball.models.dto.StatisticDto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 
 public class FixtureMapper {
 
@@ -29,7 +33,54 @@ public class FixtureMapper {
                 .finished(FINISHED.equals(matchDto.getMatchStatus()))
                 .score(mapScore(matchDto))
                 .goals(mapGoals(matchDto))
+                .statistics(mapStatistics(matchDto.getStatistics()))
                 .build();
+    }
+
+    private static List<Statistic> mapStatistics(List<StatisticDto> statistics) {
+        if (statistics == null) return List.of();
+
+        return statistics.stream()
+                .map(FixtureMapper::mapSingleStatistic)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private static Statistic mapSingleStatistic(StatisticDto stat) {
+        if (!StatType.getStatTypesValue().contains(stat.getType())) {
+            return null;
+        }
+
+        Integer home = parseStatistic(stat.getHome());
+        Integer away = parseStatistic(stat.getAway());
+
+        if (home == null || away == null) {
+            return null;
+        }
+
+        return Statistic.builder()
+                .type(stat.getType())
+                .home(home)
+                .away(away)
+                .percentage(stat.getHome().contains("%"))
+                .build();
+    }
+
+    private static Integer parseStatistic(String teamStat) {
+        if (teamStat == null) return null;
+
+        String cleaned = teamStat.replace("%", "")
+                .replace("[", "")
+                .replace("]", "")
+                .trim();
+
+        if (cleaned.isEmpty()) return null;
+
+        try {
+            return Integer.parseInt(cleaned);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static LocalDateTime mapTime(MatchDto matchDto) {
@@ -54,7 +105,8 @@ public class FixtureMapper {
         String assistBy = getAssistBy(goalDto, teamType);
         String teamName = getTeamName(matchDto, teamType);
 
-        String[] scoreParts = goalDto.getScore().split(" - ");
+        String rawScore = goalDto.getScore().replace("[", "").replace("]", "");
+        String[] scoreParts = rawScore.split(" - ");
         int homeScore = Integer.parseInt(scoreParts[0].trim());
         int awayScore = Integer.parseInt(scoreParts[1].trim());
 
