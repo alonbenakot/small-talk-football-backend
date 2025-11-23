@@ -22,13 +22,7 @@ public class AiService {
                     .build();
             Prompt prompt = new Prompt(promptText, options);
 
-//            log.debug("Sending prompt: {}", promptText);
-
-            long start = System.currentTimeMillis();
-            String text = client.call(prompt).getResult().getOutput().getText();
-            long end = System.currentTimeMillis();
-
-            return text;
+            return client.call(prompt).getResult().getOutput().getText();
 
         } catch (Exception e) {
             log.error("Error calling AI service", e);

@@ -47,7 +47,6 @@ public class OneLinersService {
     }
 
     private static boolean matchesTeamAndLanguage(TeamType teamType, Language lang, OneLiner oneLiner) {
-        boolean match = oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
-        return match;
+        return oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
     }
 }
