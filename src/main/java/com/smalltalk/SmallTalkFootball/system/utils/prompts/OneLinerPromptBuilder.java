@@ -45,7 +45,7 @@ public class OneLinerPromptBuilder implements PromptBuilder {
 
     @Override
     public String style() {
-        return "%s english , slightly biased toward %s, casual friendly banter.".formatted(language, preferredTeam);
+        return "%s , slightly biased toward %s, casual friendly banter.".formatted(getLanguageDescription(), preferredTeam);
     }
 
     @Override
@@ -95,6 +95,14 @@ public class OneLinerPromptBuilder implements PromptBuilder {
             %s""";
 
         return prompt.formatted(competition, home, away, home, score.getHome(), away, score.getAway(), coaches, winner, goals, stats);
+    }
+
+    private String getLanguageDescription() {
+        return switch (language) {
+            case HEBREW -> "Hebrew";
+            case AMERICAN -> "American English";
+            case BRITISH -> "British English";
+        };
     }
 
     private String getCoaches(Fixture fixture) {
