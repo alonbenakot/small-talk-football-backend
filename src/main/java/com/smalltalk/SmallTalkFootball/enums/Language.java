@@ -2,5 +2,5 @@ package com.smalltalk.SmallTalkFootball.enums;
 
 public enum Language {
 
-    BRITISH, AMERICAN
+    BRITISH, AMERICAN, HEBREW
 }
