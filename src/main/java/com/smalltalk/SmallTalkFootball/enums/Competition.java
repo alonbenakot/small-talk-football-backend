@@ -13,7 +13,8 @@ public enum Competition {
     LA_LIGA(302),
     BUNDESLIGA(175),
     LIGAT_HA_AL(202),
-    SERIA_A(207);
+    SERIA_A(207),
+    CHAMPIONS_LEAGUE(3);
 
     private final int code;
 
