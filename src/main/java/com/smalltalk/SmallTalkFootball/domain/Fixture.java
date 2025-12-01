@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 
 @Builder
@@ -38,7 +38,7 @@ public class Fixture {
 
     private int externalId;
 
-    private LocalDateTime matchDateTime;
+    private Instant matchDateTime;
 
     private boolean finished;
 

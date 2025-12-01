@@ -12,7 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -64,7 +66,8 @@ public class FixtureService {
     }
 
     private void deleteOldFixtures(LocalDate deleteMatchesDate) {
-        long deletedFixtures = repo.deleteByMatchDateTimeBefore(deleteMatchesDate.atStartOfDay());
+        Instant startOfDay = deleteMatchesDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        long deletedFixtures = repo.deleteByMatchDateTimeBefore(startOfDay);
         log.info("Deleted {} fixtures", deletedFixtures);
     }
 
@@ -77,7 +80,8 @@ public class FixtureService {
     }
 
     private Set<Integer> getFixturesExternalIds(LocalDate earliestMatchDay) {
-        return repo.findByMatchDateTimeAfter(earliestMatchDay.atStartOfDay()).stream()
+        Instant startOfDay = earliestMatchDay.atStartOfDay(ZoneOffset.UTC).toInstant();
+        return repo.findByMatchDateTimeAfter(startOfDay).stream()
                 .map(Fixture::getExternalId)
                 .collect(Collectors.toSet());
     }
