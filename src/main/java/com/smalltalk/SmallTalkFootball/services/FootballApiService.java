@@ -83,6 +83,7 @@ public class FootballApiService {
                                 .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
                                 .queryParam("to", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
                                 .queryParam("league_id", competition.getCode())
+                                .queryParam("timezone", "UTC")
                                 .build())
                         .retrieve()
                         .toEntity(String.class),
