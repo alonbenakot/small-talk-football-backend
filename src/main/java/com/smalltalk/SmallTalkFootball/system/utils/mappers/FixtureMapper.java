@@ -12,9 +12,7 @@ import com.smalltalk.SmallTalkFootball.models.dto.GoalscorerItem;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 import com.smalltalk.SmallTalkFootball.models.dto.StatisticDto;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.List;
 import java.util.Objects;
 
@@ -83,11 +81,12 @@ public class FixtureMapper {
         }
     }
 
-    private static LocalDateTime mapTime(MatchDto matchDto) {
+    private static Instant mapTime(MatchDto matchDto) {
         LocalDate date = LocalDate.parse(matchDto.getMatchDate());
         LocalTime time = LocalTime.parse(matchDto.getMatchTime());
 
-        return LocalDateTime.of(date, time);
+        LocalDateTime localDateTime = LocalDateTime.of(date, time);
+        return localDateTime.toInstant(ZoneOffset.UTC);
     }
 
     private static List<Goal> mapGoals(MatchDto matchDto) {
