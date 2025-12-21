@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.dto.CompetitionDto;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
+import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.system.utils.ResponseHandler;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -69,6 +70,23 @@ public class FootballApiService {
                                 .toEntity(String.class),
                         "Failed fetching " + competition + " team data",
                         new TypeReference<List<TeamDataDto>>() {
+                        },
+                        apiClientObjectMapper)
+                .toList();
+    }
+
+    public List<StandingsDtoItem> getCompetitionStandings(Competition competition) {
+        return ResponseHandler.process(
+                        () -> restClient.get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam("APIkey", apiKey)
+                                        .queryParam("action", "get_standings")
+                                        .queryParam("league_id", competition.getCode())
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class),
+                        "Failed fetching " + competition + " standings",
+                        new TypeReference<List<StandingsDtoItem>>() {
                         },
                         apiClientObjectMapper)
                 .toList();

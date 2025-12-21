@@ -1,5 +1,7 @@
 package com.smalltalk.SmallTalkFootball.domain;
 
+import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.models.TeamCompetitionRating;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,4 +28,8 @@ public class TeamData {
     private String crest;
 
     private int competitionCode;
+
+    private Competition competition;
+
+    private TeamCompetitionRating teamCompetitionRating;
 }

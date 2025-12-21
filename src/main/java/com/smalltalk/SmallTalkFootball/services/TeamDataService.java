@@ -7,20 +7,37 @@ import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Team;
+import com.smalltalk.SmallTalkFootball.models.TeamCompetitionRating;
+import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.TeamDataMapper;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class TeamDataService {
     private final TeamDataRepository repository;
 
     private final FootballApiService service;
+
+    private final Mapper<StandingsDtoItem, TeamCompetitionRating> competitionRatingMapper;
+
+    public TeamDataService(
+            TeamDataRepository repository,
+            FootballApiService service,
+            @Qualifier("competitionRatingMapper") Mapper<StandingsDtoItem, TeamCompetitionRating> competitionRatingMapper) {
+        this.repository = repository;
+        this.service = service;
+        this.competitionRatingMapper = competitionRatingMapper;
+    }
 
     public void saveCompetitionTeams() {
 
@@ -33,6 +50,20 @@ public class TeamDataService {
             repository.deleteAll();
             repository.saveAll(teams);
         }
+    }
+
+    public void getTeamsCompetitionRating() {
+        List<TeamData> teams = repository.findAll();
+
+        Map<String, TeamCompetitionRating> standingsMap = Arrays.stream(Competition.values())
+                .flatMap(competition -> service.getCompetitionStandings(competition).stream())
+                .filter(Objects::nonNull)
+                .map(competitionRatingMapper::map)
+                .collect(Collectors.toMap(TeamCompetitionRating::getExternalTeamId, Function.identity()));
+
+        teams.forEach(teamData ->
+                teamData.setTeamCompetitionRating(standingsMap.get(teamData.getExternalKey()))
+        );
     }
 
     public List<TeamData> getTeamsData() {
