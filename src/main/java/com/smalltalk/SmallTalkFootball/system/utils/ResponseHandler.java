@@ -23,7 +23,7 @@ public class ResponseHandler {
 
     public static void logResponseError(ResponseEntity<String> response, String errorMsg) {
         try {
-            log.error(errorMsg + " (" + response.getStatusCode() + "): " + response.getBody());
+            log.error("{} ({}): {}", errorMsg, response.getStatusCode(), response.getBody());
         } catch (Exception e) {
             log.error(errorMsg);
         }

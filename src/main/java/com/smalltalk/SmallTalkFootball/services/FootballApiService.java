@@ -29,8 +29,10 @@ public class FootballApiService {
 
     private final ObjectMapper apiClientObjectMapper;
 
-    public FootballApiService(RestClient.Builder builder, @Value("${api.football.key}") String apiKey,
-                              @Qualifier("apiClient") ObjectMapper apiClientObjectMapper) {
+    public FootballApiService(
+            RestClient.Builder builder,
+            @Value("${api.football.key}") String apiKey,
+            @Qualifier("apiClient") ObjectMapper apiClientObjectMapper) {
         this.apiKey = apiKey;
         this.apiClientObjectMapper = apiClientObjectMapper;
         this.restClient = builder.baseUrl(BASE_URL).build();
@@ -58,7 +60,7 @@ public class FootballApiService {
         ).toList();
     }
 
-    public List<TeamDataDto> getTeamData(Competition competition) {
+    public List<TeamDataDto> getTeamDataList(Competition competition) {
         return ResponseHandler.process(
                         () -> restClient.get()
                                 .uri(uriBuilder -> uriBuilder

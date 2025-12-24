@@ -6,15 +6,15 @@ import lombok.Data;
 
 @Data
 @Builder
-public class TeamCompetitionRating {
-
-    private String externalTeamId;
+public class Standing {
 
     private Competition competition;
 
     private Integer position;
 
     private Integer playedMatches;
+
+    private Integer points;
 
     private WinLossDraw overall;
 

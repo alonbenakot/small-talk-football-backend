@@ -1,13 +1,15 @@
 package com.smalltalk.SmallTalkFootball.domain;
 
 import com.smalltalk.SmallTalkFootball.enums.Competition;
-import com.smalltalk.SmallTalkFootball.models.TeamCompetitionRating;
+import com.smalltalk.SmallTalkFootball.models.Standing;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Map;
 
 @Builder
 @Document
@@ -19,17 +21,11 @@ public class TeamData {
     @Id
     private String id;
 
-    private String externalKey;
-
     private String name;
 
     private String coach;
 
     private String crest;
 
-    private int competitionCode;
-
-    private Competition competition;
-
-    private TeamCompetitionRating teamCompetitionRating;
+    private Map<Competition, Standing> standings;
 }

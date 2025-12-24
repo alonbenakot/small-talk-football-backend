@@ -6,19 +6,23 @@ import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
+import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.Team;
-import com.smalltalk.SmallTalkFootball.models.TeamCompetitionRating;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
-import com.smalltalk.SmallTalkFootball.system.utils.mappers.TeamDataMapper;
+import com.smalltalk.SmallTalkFootball.system.utils.mappers.TeamDataUpdateMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -26,44 +30,63 @@ import java.util.stream.Collectors;
 public class TeamDataService {
     private final TeamDataRepository repository;
 
+    private final MongoTemplate mongoTemplate;
+
     private final FootballApiService service;
 
-    private final Mapper<StandingsDtoItem, TeamCompetitionRating> competitionRatingMapper;
+    private final Mapper<StandingsDtoItem, Standing> standingMapper;
 
     public TeamDataService(
             TeamDataRepository repository,
+            MongoTemplate mongoTemplate,
             FootballApiService service,
-            @Qualifier("competitionRatingMapper") Mapper<StandingsDtoItem, TeamCompetitionRating> competitionRatingMapper) {
+            @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper) {
         this.repository = repository;
         this.service = service;
-        this.competitionRatingMapper = competitionRatingMapper;
+        this.standingMapper = competitionRatingMapper;
+        this.mongoTemplate = mongoTemplate;
     }
 
     public void saveCompetitionTeams() {
 
-        List<TeamData> teams = Arrays.stream(Competition.values())
-                .flatMap(competition -> service.getTeamData(competition).stream()
-                        .map(team -> TeamDataMapper.map(team, competition)))
-                .toList();
+        Arrays.stream(Competition.values()).forEach(competition -> {
+            service.getTeamDataList(competition).forEach(teamDto -> {
 
-        if (!teams.isEmpty()) {
-            repository.deleteAll();
-            repository.saveAll(teams);
-        }
+                Query query = Query.query(Criteria.where("_id").is(teamDto.getTeamKey()));
+
+                Update update = TeamDataUpdateMapper.map(teamDto)
+                        .setOnInsert("_id", teamDto.getTeamKey())
+                        .setOnInsert("standings", new EnumMap<>(Competition.class));
+
+                mongoTemplate.upsert(query, update, TeamData.class);
+            });
+
+        });
     }
 
-    public void getTeamsCompetitionRating() {
-        List<TeamData> teams = repository.findAll();
+    public void refreshStandings() {
+        Map<String, TeamData> teamsByExternalKey = repository.findAll().stream()
+                .collect(Collectors.toMap(
+                        TeamData::getId,
+                        Function.identity()
+                ));
 
-        Map<String, TeamCompetitionRating> standingsMap = Arrays.stream(Competition.values())
-                .flatMap(competition -> service.getCompetitionStandings(competition).stream())
-                .filter(Objects::nonNull)
-                .map(competitionRatingMapper::map)
-                .collect(Collectors.toMap(TeamCompetitionRating::getExternalTeamId, Function.identity()));
+        Arrays.stream(Competition.values()).forEach(competition -> {
+            service.getCompetitionStandings(competition).forEach(standingsDto -> {
 
-        teams.forEach(teamData ->
-                teamData.setTeamCompetitionRating(standingsMap.get(teamData.getExternalKey()))
-        );
+                TeamData team = teamsByExternalKey.get(standingsDto.getTeamId());
+                if (team == null) return;
+
+                Standing standing = standingMapper.map(standingsDto);
+
+                team.getStandings().put(
+                        standing.getCompetition(),
+                        standing
+                );
+            });
+        });
+
+        repository.saveAll(teamsByExternalKey.values());
     }
 
     public List<TeamData> getTeamsData() {
@@ -116,7 +139,7 @@ public class TeamDataService {
 
     private void fillMissingData(Team team, List<TeamData> teamDataList) {
         teamDataList.stream()
-                .filter(teamData -> team.getExternalId().equals(teamData.getExternalKey()))
+                .filter(teamData -> team.getExternalId().equals(teamData.getId()))
                 .findAny()
                 .ifPresent(teamData -> applyTeamData(team, teamData));
     }

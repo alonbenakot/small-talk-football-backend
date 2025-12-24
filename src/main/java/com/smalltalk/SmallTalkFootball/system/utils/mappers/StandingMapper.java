@@ -1,7 +1,7 @@
 package com.smalltalk.SmallTalkFootball.system.utils.mappers;
 
 import com.smalltalk.SmallTalkFootball.enums.Competition;
-import com.smalltalk.SmallTalkFootball.models.TeamCompetitionRating;
+import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.WinLossDraw;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,16 +11,16 @@ import org.springframework.util.StringUtils;
 import javax.validation.constraints.NotNull;
 
 @Component
-@Qualifier("competitionRatingMapper")
-public class TeamCompetitionRatingMapper implements Mapper<StandingsDtoItem, TeamCompetitionRating> {
+@Qualifier("standingMapper")
+public class StandingMapper implements Mapper<StandingsDtoItem, Standing> {
 
     @Override
-    public TeamCompetitionRating map(@NotNull StandingsDtoItem standingsDtoItem) {
-        return TeamCompetitionRating.builder()
-                .externalTeamId(standingsDtoItem.getTeamId())
+    public Standing map(@NotNull StandingsDtoItem standingsDtoItem) {
+        return Standing.builder()
                 .competition(Competition.fromCode(Integer.parseInt(standingsDtoItem.getLeagueId())))
                 .position(mapPosition(standingsDtoItem))
                 .playedMatches(mapPlayedMatches(standingsDtoItem))
+                .points(calculatePoints(standingsDtoItem.getOverallLeagueW(), standingsDtoItem.getOverallLeagueD()))
                 .overall(mapWinLossDraw(
                         standingsDtoItem.getOverallLeagueW(),
                         standingsDtoItem.getOverallLeagueL(),
@@ -37,6 +37,17 @@ public class TeamCompetitionRatingMapper implements Mapper<StandingsDtoItem, Tea
                         standingsDtoItem.getAwayLeagueD()))
 
                 .build();
+    }
+
+    private Integer calculatePoints(String w, String d) {
+        if (!StringUtils.hasText(w) || !StringUtils.hasText(d)) {
+            return null;
+        }
+
+        int wins = Integer.parseInt(w);
+        int draws = Integer.parseInt(d);
+
+        return wins * 3 + draws;
     }
 
     private Integer mapPlayedMatches(StandingsDtoItem standingsDtoItem) {
