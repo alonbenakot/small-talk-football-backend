@@ -12,13 +12,13 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class OneLinerPromptBuilder implements PromptBuilder {
+public class FinishedFixtureOneLinerPromptBuilder implements PromptBuilder {
 
     private Fixture fixture;
     private Language language;
     private String preferredTeam;
 
-    public OneLinerPromptBuilder(Fixture fixture, TeamType teamType, Language language) {
+    public FinishedFixtureOneLinerPromptBuilder(Fixture fixture, TeamType teamType, Language language) {
         this.fixture = fixture;
         this.language = language;
         setPreferredTeam(teamType);

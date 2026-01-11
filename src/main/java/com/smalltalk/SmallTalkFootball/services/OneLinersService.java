@@ -5,8 +5,8 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
-import com.smalltalk.SmallTalkFootball.system.utils.prompts.OneLinerPromptBuilder;
 import com.smalltalk.SmallTalkFootball.system.utils.prompts.PromptBuilder;
+import com.smalltalk.SmallTalkFootball.system.utils.prompts.PromptBuilderFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class OneLinersService {
 
     private final FixtureService fixtureService;
+
     private final AiService aiService;
+
+    private final PromptBuilderFactory promptBuilderFactory;
 
     public OneLiner getOneLiner(String fixtureId, TeamType teamType, Language lang) throws SmallTalkException {
         Fixture fixture = fixtureService.getFixture(fixtureId);
@@ -30,10 +33,9 @@ public class OneLinersService {
                 .orElseGet(() -> generateOneLiner(teamType, lang, fixture));
     }
 
-    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture){
-        PromptBuilder promptBuilder = new OneLinerPromptBuilder(fixture, teamType, lang);
-        String promptText = promptBuilder.buildPrompt();
-        String oneLinerText = aiService.generate(promptText);
+    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture) {
+        PromptBuilder promptBuilder = promptBuilderFactory.create(fixture, teamType, lang);
+        String oneLinerText = aiService.generate(promptBuilder.buildPrompt());
 
         OneLiner oneLiner = OneLiner.builder()
                 .text(oneLinerText)

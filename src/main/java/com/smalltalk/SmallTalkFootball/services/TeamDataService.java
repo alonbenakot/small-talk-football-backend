@@ -9,9 +9,9 @@ import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
+import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
-import com.smalltalk.SmallTalkFootball.system.utils.mappers.TeamDataUpdateMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -36,14 +36,18 @@ public class TeamDataService {
 
     private final Mapper<StandingsDtoItem, Standing> standingMapper;
 
+    private final Mapper<TeamDataDto, Update> teamDataUpdateMapper;
+
     public TeamDataService(
             TeamDataRepository repository,
             MongoTemplate mongoTemplate,
             FootballApiService service,
-            @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper) {
+            @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper,
+            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper) {
         this.repository = repository;
         this.service = service;
         this.standingMapper = competitionRatingMapper;
+        this.teamDataUpdateMapper = teamDataUpdateMapper;
         this.mongoTemplate = mongoTemplate;
     }
 
@@ -54,7 +58,7 @@ public class TeamDataService {
 
                 Query query = Query.query(Criteria.where("_id").is(teamDto.getTeamKey()));
 
-                Update update = TeamDataUpdateMapper.map(teamDto)
+                Update update = teamDataUpdateMapper.map(teamDto)
                         .setOnInsert("_id", teamDto.getTeamKey())
                         .setOnInsert("standings", new EnumMap<>(Competition.class));
 

@@ -3,10 +3,7 @@ package com.smalltalk.SmallTalkFootball.services;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
-import com.smalltalk.SmallTalkFootball.models.dto.CompetitionDto;
-import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
-import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
-import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
+import com.smalltalk.SmallTalkFootball.models.dto.*;
 import com.smalltalk.SmallTalkFootball.system.utils.ResponseHandler;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +14,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
+@SuppressWarnings("SimplifyOptionalCallChains")
 @Service
 public class FootballApiService {
     private static final String BASE_URL = "https://apiv3.apifootball.com/";
@@ -46,18 +45,21 @@ public class FootballApiService {
 
     public List<CompetitionDto> getCompetitionData() {
         return ResponseHandler.process(
-                () -> restClient.get()
-                        .uri(uriBuilder -> uriBuilder
-                                .queryParam("APIkey", apiKey)
-                                .queryParam("action", "get_leagues")
-                                .build())
-                        .retrieve()
-                        .toEntity(String.class),
-                "Failed fetching competitions data",
-                new TypeReference<List<CompetitionDto>>() {
-                },
-                apiClientObjectMapper
-        ).toList();
+                        () -> restClient.get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam("APIkey", apiKey)
+                                        .queryParam("action", "get_leagues")
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class),
+                        "Failed fetching competitions data",
+                        new TypeReference<List<CompetitionDto>>() {
+                        },
+                        apiClientObjectMapper
+                )
+                .map(List::stream)
+                .orElse(Stream.empty())
+                .toList();
     }
 
     public List<TeamDataDto> getTeamDataList(Competition competition) {
@@ -74,7 +76,27 @@ public class FootballApiService {
                         new TypeReference<List<TeamDataDto>>() {
                         },
                         apiClientObjectMapper)
+                .map(List::stream)
+                .orElse(Stream.empty())
                 .toList();
+    }
+
+    public Optional<HeadToHeadResponse> getHeadToHeadData(String firstTeamId, String secondTeamId) {
+        return ResponseHandler.process(
+                () -> restClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .queryParam("APIkey", apiKey)
+                                .queryParam("action", "get_H2H")
+                                .queryParam("firstTeamId", firstTeamId)
+                                .queryParam("secondTeamId", secondTeamId)
+                                .build())
+                        .retrieve()
+                        .toEntity(String.class)
+                ,
+                "Failed fetching headToHead data",
+                HeadToHeadResponse.class,
+                apiClientObjectMapper
+        );
     }
 
     public List<StandingsDtoItem> getCompetitionStandings(Competition competition) {
@@ -91,29 +113,31 @@ public class FootballApiService {
                         new TypeReference<List<StandingsDtoItem>>() {
                         },
                         apiClientObjectMapper)
+                .map(List::stream)
+                .orElse(Stream.empty())
                 .toList();
     }
 
     private Stream<MatchDto> fetchMatchesByCompetition(Competition competition, LocalDate fromDate) {
         return ResponseHandler.process(
-                () -> restClient.get()
-                        .uri(uriBuilder -> uriBuilder
-                                .queryParam("APIkey", apiKey)
-                                .queryParam("action", "get_events")
-                                .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                                .queryParam("to", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                                .queryParam("league_id", competition.getCode())
-                                .queryParam("timezone", "UTC")
-                                .build())
-                        .retrieve()
-                        .toEntity(String.class),
-                "Failed fetching " + competition + " matches",
-                new TypeReference<List<MatchDto>>() {
-                },
-                apiClientObjectMapper
-        );
+                        () -> restClient.get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam("APIkey", apiKey)
+                                        .queryParam("action", "get_events")
+                                        .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                        .queryParam("to", LocalDate.now().plusDays(7).format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                        .queryParam("league_id", competition.getCode())
+                                        .queryParam("timezone", "UTC")
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class),
+                        "Failed fetching " + competition + " matches",
+                        new TypeReference<List<MatchDto>>() {
+                        },
+                        apiClientObjectMapper
+                )
+                .map(List::stream)
+                .orElse(Stream.empty());
     }
 
-
 }
-

@@ -11,16 +11,19 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.GoalscorerItem;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
 import com.smalltalk.SmallTalkFootball.models.dto.StatisticDto;
+import com.smalltalk.SmallTalkFootball.models.dto.SummaryMatchDto;
+import org.springframework.stereotype.Component;
 
 import java.time.*;
 import java.util.List;
 import java.util.Objects;
 
-public class FixtureMapper {
+@Component
+public class FixtureAssembler {
 
-    public static final String FINISHED = "Finished";
+    public final String FINISHED = "Finished";
 
-    public static Fixture map(MatchDto matchDto) {
+    public Fixture assembleFromFullMatch(MatchDto matchDto) {
         return Fixture.builder()
                 .externalId(Integer.parseInt(matchDto.getMatchId()))
                 .competition(Competition.fromCode(Integer.parseInt(matchDto.getLeagueId())))
@@ -35,16 +38,27 @@ public class FixtureMapper {
                 .build();
     }
 
-    private static List<Statistic> mapStatistics(List<StatisticDto> statistics) {
+    public Fixture assembleFromSummary(SummaryMatchDto summaryMatchDto) {
+        return Fixture.builder()
+                .externalId(Integer.parseInt(summaryMatchDto.getMatchId()))
+                .competition(Competition.fromCode(Integer.parseInt(summaryMatchDto.getLeagueId())))
+                .homeTeam(mapTeam(summaryMatchDto, TeamType.HOME))
+                .awayTeam(mapTeam(summaryMatchDto, TeamType.AWAY))
+                .finished(FINISHED.equals(summaryMatchDto.getMatchStatus()))
+                .score(mapScore(summaryMatchDto))
+                .build();
+    }
+
+    private List<Statistic> mapStatistics(List<StatisticDto> statistics) {
         if (statistics == null) return List.of();
 
         return statistics.stream()
-                .map(FixtureMapper::mapSingleStatistic)
+                .map(this::mapSingleStatistic)
                 .filter(Objects::nonNull)
                 .toList();
     }
 
-    private static Statistic mapSingleStatistic(StatisticDto stat) {
+    private Statistic mapSingleStatistic(StatisticDto stat) {
         if (!StatType.getStatTypesValue().contains(stat.getType())) {
             return null;
         }
@@ -64,7 +78,7 @@ public class FixtureMapper {
                 .build();
     }
 
-    private static Integer parseStatistic(String teamStat) {
+    private Integer parseStatistic(String teamStat) {
         if (teamStat == null) return null;
 
         String cleaned = teamStat.replace("%", "")
@@ -81,7 +95,7 @@ public class FixtureMapper {
         }
     }
 
-    private static Instant mapTime(MatchDto matchDto) {
+    private Instant mapTime(MatchDto matchDto) {
         LocalDate date = LocalDate.parse(matchDto.getMatchDate());
         LocalTime time = LocalTime.parse(matchDto.getMatchTime());
 
@@ -89,7 +103,7 @@ public class FixtureMapper {
         return localDateTime.toInstant(ZoneOffset.UTC);
     }
 
-    private static List<Goal> mapGoals(MatchDto matchDto) {
+    private List<Goal> mapGoals(MatchDto matchDto) {
         List<GoalscorerItem> goalsDto = matchDto.getGoalscorer();
         if (goalsDto == null) return List.of();
 
@@ -98,7 +112,7 @@ public class FixtureMapper {
                 .toList();
     }
 
-    private static Goal mapSingleGoal(GoalscorerItem goalDto, MatchDto matchDto) {
+    private Goal mapSingleGoal(GoalscorerItem goalDto, MatchDto matchDto) {
         TeamType teamType = determineTeamType(goalDto);
         String goalBy = getGoalBy(goalDto, teamType);
         String assistBy = getAssistBy(goalDto, teamType);
@@ -120,7 +134,7 @@ public class FixtureMapper {
                 .build();
     }
 
-    private static int mapMinute(GoalscorerItem goalDto) {
+    private int mapMinute(GoalscorerItem goalDto) {
         String time = goalDto.getTime();
         if (time.contains("+")) {
             String[] splitTime = time.split("\\+");
@@ -129,24 +143,24 @@ public class FixtureMapper {
         return Integer.parseInt(time);
     }
 
-    private static TeamType determineTeamType(GoalscorerItem goalDto) {
+    private TeamType determineTeamType(GoalscorerItem goalDto) {
         return goalDto.getHomeScorer() != null && !goalDto.getHomeScorer().isBlank()
                 ? TeamType.HOME : TeamType.AWAY;
     }
 
-    private static String getGoalBy(GoalscorerItem goalDto, TeamType teamType) {
+    private String getGoalBy(GoalscorerItem goalDto, TeamType teamType) {
         return teamType == TeamType.HOME ? goalDto.getHomeScorer() : goalDto.getAwayScorer();
     }
 
-    private static String getAssistBy(GoalscorerItem goalDto, TeamType teamType) {
+    private String getAssistBy(GoalscorerItem goalDto, TeamType teamType) {
         return teamType == TeamType.HOME ? goalDto.getHomeAssist() : goalDto.getAwayAssist();
     }
 
-    private static String getTeamName(MatchDto matchDto, TeamType teamType) {
+    private String getTeamName(MatchDto matchDto, TeamType teamType) {
         return teamType == TeamType.HOME ? matchDto.getMatchHomeTeamName() : matchDto.getMatchAwayTeamName();
     }
 
-    private static Score mapScore(MatchDto matchDto) {
+    private Score mapScore(MatchDto matchDto) {
         int homeScore;
         int awayScore;
         try {
@@ -170,7 +184,29 @@ public class FixtureMapper {
                 .build();
     }
 
-    private static int[] deriveScoreFromGoals(MatchDto matchDto) {
+    private Score mapScore(SummaryMatchDto matchDto) {
+        int homeScore;
+        int awayScore;
+        try {
+            homeScore = Integer.parseInt(matchDto.getMatchHometeamScore());
+            awayScore = Integer.parseInt(matchDto.getMatchAwayteamScore());
+        } catch (Exception e) {
+            return null;
+        }
+        boolean isDraw = homeScore == awayScore;
+
+        String winner = isDraw ? null
+                : (homeScore > awayScore ? matchDto.getMatchHometeamName() : matchDto.getMatchAwayteamName());
+
+        return Score.builder()
+                .home(homeScore)
+                .away(awayScore)
+                .draw(isDraw)
+                .winner(winner)
+                .build();
+    }
+
+    private int[] deriveScoreFromGoals(MatchDto matchDto) {
         if (matchDto.getGoalscorer() == null || matchDto.getGoalscorer().isEmpty()) {
             return new int[]{0, 0};
         }
@@ -183,7 +219,7 @@ public class FixtureMapper {
         return new int[]{homeScore, awayScore};
     }
 
-    private static Team mapTeam(MatchDto matchDto, TeamType teamType) {
+    private Team mapTeam(MatchDto matchDto, TeamType teamType) {
         String teamId = teamType == TeamType.HOME ? matchDto.getMatchHometeamId() : matchDto.getMatchAwayteamId();
         String crest = teamType == TeamType.HOME ? matchDto.getTeamHomeBadge() : matchDto.getTeamAwayBadge();
         String name = teamType == TeamType.HOME ? matchDto.getMatchHomeTeamName() : matchDto.getMatchAwayTeamName();
@@ -199,7 +235,17 @@ public class FixtureMapper {
                 .build();
     }
 
-    private static String getCoach(MatchDto matchDto, TeamType teamType) {
+    private Team mapTeam(SummaryMatchDto matchDto, TeamType teamType) {
+        String teamId = teamType == TeamType.HOME ? matchDto.getMatchHometeamId() : matchDto.getMatchAwayteamId();
+        String name = teamType == TeamType.HOME ? matchDto.getMatchHometeamName() : matchDto.getMatchAwayteamName();
+
+        return Team.builder()
+                .externalId(teamId)
+                .name(name)
+                .build();
+    }
+
+    private String getCoach(MatchDto matchDto, TeamType teamType) {
         try {
             return teamType == TeamType.HOME
                     ? matchDto.getMatchLineup().getHomeLineUp().getCoaches().get(0).getLineupPlayer()
@@ -208,4 +254,5 @@ public class FixtureMapper {
             return null;
         }
     }
+
 }

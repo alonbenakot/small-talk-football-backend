@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 
-import java.util.List;
+import java.lang.reflect.Type;
+import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 @Slf4j
 public class ResponseHandler {
@@ -29,10 +29,11 @@ public class ResponseHandler {
         }
     }
 
-    public static <T> Stream<T> process(
+
+    public static <T> Optional<T> process(
             Supplier<ResponseEntity<String>> apiCall,
             String errorMessage,
-            TypeReference<List<T>> typeReference,
+            TypeReference<T> typeReference,
             ObjectMapper objectMapper) {
 
         ResponseEntity<String> response = null;
@@ -40,16 +41,31 @@ public class ResponseHandler {
             response = apiCall.get();
 
             if (isValidResponse(response)) {
-                List<T> items = objectMapper.readValue(response.getBody(), typeReference);
-                return items.stream();
+                T result = objectMapper.readValue(response.getBody(), typeReference);
+                return Optional.ofNullable(result);
             } else {
                 logResponseError(response, errorMessage);
-                return Stream.empty();
+                return Optional.empty();
             }
         } catch (Exception e) {
             logResponseError(response, errorMessage + " - Exception: " + e.getMessage());
-            return Stream.empty();
+            return Optional.empty();
         }
+    }
+
+    public static <T> Optional<T> process(
+            Supplier<ResponseEntity<String>> apiCall,
+            String errorMessage,
+            Class<T> clazz,
+            ObjectMapper objectMapper) {
+
+        return process(apiCall, errorMessage,
+                new TypeReference<T>() {
+                    @Override
+                    public Type getType() {
+                        return clazz;
+                    }
+                }, objectMapper);
     }
 
 }
