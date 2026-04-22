@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Qualifier("summaryFixtureMapper")
 public class SummaryFixtureMapper implements Mapper<SummaryMatchDto, Fixture> {
 
-    private FixtureAssembler assembler;
+    private final FixtureAssembler assembler;
 
     @Override
     public Fixture map(SummaryMatchDto summaryMatchDto) {

@@ -26,7 +26,7 @@ public class FixtureAssembler {
     public Fixture assembleFromFullMatch(MatchDto matchDto) {
         return Fixture.builder()
                 .externalId(Integer.parseInt(matchDto.getMatchId()))
-                .competition(Competition.fromCode(Integer.parseInt(matchDto.getLeagueId())))
+                .competition(mapCompetition(matchDto.getLeagueId()))
                 .venue(matchDto.getMatchStadium())
                 .homeTeam(mapTeam(matchDto, TeamType.HOME))
                 .awayTeam(mapTeam(matchDto, TeamType.AWAY))
@@ -41,12 +41,20 @@ public class FixtureAssembler {
     public Fixture assembleFromSummary(SummaryMatchDto summaryMatchDto) {
         return Fixture.builder()
                 .externalId(Integer.parseInt(summaryMatchDto.getMatchId()))
-                .competition(Competition.fromCode(Integer.parseInt(summaryMatchDto.getLeagueId())))
+                .competition(mapCompetition(summaryMatchDto.getLeagueId()))
                 .homeTeam(mapTeam(summaryMatchDto, TeamType.HOME))
                 .awayTeam(mapTeam(summaryMatchDto, TeamType.AWAY))
                 .finished(FINISHED.equals(summaryMatchDto.getMatchStatus()))
                 .score(mapScore(summaryMatchDto))
                 .build();
+    }
+
+    private static Competition mapCompetition(String summaryMatchDto) {
+        try {
+            return Competition.fromCode(Integer.parseInt(summaryMatchDto));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private List<Statistic> mapStatistics(List<StatisticDto> statistics) {

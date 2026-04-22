@@ -39,7 +39,7 @@ public class ResponseHandler {
         ResponseEntity<String> response = null;
         try {
             response = apiCall.get();
-
+            log.debug(response.toString());
             if (isValidResponse(response)) {
                 T result = objectMapper.readValue(response.getBody(), typeReference);
                 return Optional.ofNullable(result);

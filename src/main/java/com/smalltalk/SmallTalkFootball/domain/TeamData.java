@@ -21,6 +21,8 @@ public class TeamData {
     @Id
     private String id;
 
+    private String externalKey;
+
     private String name;
 
     private String coach;

@@ -28,7 +28,7 @@ public class OneLinersService {
         Fixture fixture = fixtureService.getFixture(fixtureId);
 
         return fixture.getOneLiners().stream()
-                .filter(oneLiner -> matchesTeamAndLanguage(teamType, lang, oneLiner))
+                .filter(oneLiner -> isOneLinerExists(teamType, lang, oneLiner, fixture))
                 .findAny()
                 .orElseGet(() -> generateOneLiner(teamType, lang, fixture));
     }
@@ -43,12 +43,15 @@ public class OneLinersService {
                 .teamType(teamType)
                 .build();
 
-        fixture.addOneLiner(oneLiner);
-        fixtureService.saveFixture(fixture);
+        if (fixture.isFinished()) {
+            fixture.addOneLiner(oneLiner);
+            fixtureService.saveFixture(fixture);
+        }
+
         return oneLiner;
     }
 
-    private static boolean matchesTeamAndLanguage(TeamType teamType, Language lang, OneLiner oneLiner) {
-        return oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
+    private static boolean isOneLinerExists(TeamType teamType, Language lang, OneLiner oneLiner, Fixture fixture) {
+        return fixture.isFinished() && oneLiner.getTeamType() == teamType && oneLiner.getLanguage() == lang;
     }
 }

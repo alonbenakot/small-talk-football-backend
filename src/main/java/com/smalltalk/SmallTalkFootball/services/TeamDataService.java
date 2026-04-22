@@ -60,6 +60,7 @@ public class TeamDataService {
 
                 Update update = teamDataUpdateMapper.map(teamDto)
                         .setOnInsert("_id", teamDto.getTeamKey())
+                        .setOnInsert("externalKey", teamDto.getTeamKey())
                         .setOnInsert("standings", new EnumMap<>(Competition.class));
 
                 mongoTemplate.upsert(query, update, TeamData.class);
@@ -95,6 +96,11 @@ public class TeamDataService {
 
     public List<TeamData> getTeamsData() {
         return repository.findAll();
+    }
+
+    public TeamData getTeamById(String id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("TeamData not found for id: " + id));
     }
 
     public Fixture enrichTeamsData(Fixture fixture, List<TeamData> teamDataList) {

@@ -1,21 +1,34 @@
 package com.smalltalk.SmallTalkFootball.system.utils.prompts;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.HeadToHeadData;
+import com.smalltalk.SmallTalkFootball.models.Score;
+import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.WinLossDraw;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
 
-    private Fixture fixture;
-    private Language language;
+    private final Fixture fixture;
+    private final Language language;
+    private final HeadToHeadData headToHeadData;
+    private final TeamData homeTeamData;
+    private final TeamData awayTeamData;
     private String preferredTeam;
-    private HeadToHeadData headToHeadData;
 
-    public UpcomingFixtureOneLinerPromptBuilder(Fixture fixture, TeamType preferredTeam, Language language, HeadToHeadData headToHeadData) {
+    public UpcomingFixtureOneLinerPromptBuilder(Fixture fixture, TeamType preferredTeam, Language language,
+                                                HeadToHeadData headToHeadData,
+                                                TeamData homeTeamData, TeamData awayTeamData) {
         this.fixture = fixture;
         this.language = language;
         this.headToHeadData = headToHeadData;
+        this.homeTeamData = homeTeamData;
+        this.awayTeamData = awayTeamData;
         setPreferredTeam(preferredTeam);
     }
 
@@ -23,11 +36,6 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
         this.preferredTeam = teamType == null
                 ? ""
                 : teamType == TeamType.HOME ? fixture.getHomeTeam().getName() : fixture.getAwayTeam().getName();
-    }
-
-    @Override
-    public String examples() {
-        return "";
     }
 
     @Override
@@ -39,35 +47,131 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
 
     @Override
     public String task() {
-        return "";
+        return "Generate a casual fan comment hyping or previewing the upcoming match.";
     }
 
     @Override
     public String style() {
-        return "";
+        return "%s, slightly biased toward %s, casual friendly banter.".formatted(getLanguageDescription(), preferredTeam);
     }
 
     @Override
     public String structure() {
-        return "";
+        return "1-2 sentences, under 20 words each, no line breaks, no emojis.";
     }
 
     @Override
     public String constraints() {
-        return "";
+        return "No score predictions, no invented events. Base your comment only on the data provided.";
+    }
+
+    @Override
+    public String examples() {
+        return """
+                1. City haven't lost at home in 10 games, United better bring their A-game tonight.
+                2. Every time these two meet it's a war, can't wait.
+                3. Arsenal have been on fire lately, but Chelsea always show up in the big ones.
+                4. Three wins in a row for us, this is the best time to face them.""";
     }
 
     @Override
     public String data() {
+        String home = fixture.getHomeTeam().getName();
+        String away = fixture.getAwayTeam().getName();
+        String competition = fixture.getCompetition().toString();
+
+        String coaches = """
+                %s coach: %s
+                %s coach: %s""".formatted(home, fixture.getHomeTeam().getCoach(), away, fixture.getAwayTeam().getCoach());
+
+        String homeStanding = phraseStanding(home, homeTeamData);
+        String awayStanding = phraseStanding(away, awayTeamData);
+
+        String homeForm = phraseRecentForm(headToHeadData.getFirstTeamLastFixtures());
+        String awayForm = phraseRecentForm(headToHeadData.getSecondTeamLastFixtures());
+
+        String h2h = phraseHeadToHead(headToHeadData.getTeamsLastFixtures());
+
         return """
+                Upcoming %s match: %s (home) vs %s (away)
+                
                 %s
                 
-                """.formatted(getTeamsVs());
+                League standings:
+                %s
+                %s
+                
+                %s recent form:
+                %s
+                
+                %s recent form:
+                %s
+                
+                Head-to-head history:
+                %s""".formatted(competition, home, away, coaches, homeStanding, awayStanding,
+                home, homeForm, away, awayForm, h2h);
     }
 
-    private String getTeamsVs() {
-        return """
-                %s vs %s
-                """.formatted(fixture.getHomeTeam().getName(), fixture.getAwayTeam().getName());
+    private String getLanguageDescription() {
+        return switch (language) {
+            case HEBREW -> "Hebrew";
+            case AMERICAN -> "American English";
+            case BRITISH -> "British English";
+        };
+    }
+
+    private String phraseStanding(String teamName, TeamData teamData) {
+        Standing standing = teamData.getStandings() != null
+                ? teamData.getStandings().get(fixture.getCompetition())
+                : null;
+
+        if (standing == null) {
+            return "%s: standing data unavailable".formatted(teamName);
+        }
+
+        WinLossDraw overall = standing.getOverall();
+        return "%s: position %d, %d pts (%dW %dD %dL)".formatted(
+                teamName,
+                standing.getPosition(),
+                standing.getPoints(),
+                overall.getWins(),
+                overall.getDraws(),
+                overall.getLosses());
+    }
+
+    private String phraseRecentForm(List<Fixture> recentFixtures) {
+        if (recentFixtures == null || recentFixtures.isEmpty()) {
+            return "No recent fixtures available.";
+        }
+        return recentFixtures.stream()
+                .map(f -> {
+                    Score score = f.getScore();
+                    String result = score.isDraw() ? "Draw" : "Win for " + score.getWinner();
+                    return "  %s %d-%d %s (%s)".formatted(
+                            f.getHomeTeam().getName(),
+                            score.getHome(),
+                            score.getAway(),
+                            f.getAwayTeam().getName(),
+                            result);
+                })
+                .collect(Collectors.joining("\n"));
+    }
+
+    private String phraseHeadToHead(List<Fixture> h2hFixtures) {
+        if (h2hFixtures == null || h2hFixtures.isEmpty()) {
+            return "No head-to-head history available.";
+        }
+        return h2hFixtures.stream()
+                .map(f -> {
+                    Score score = f.getScore();
+                    String result = score.isDraw() ? "Draw" : "Win for " + score.getWinner();
+                    return "  %s %d-%d %s (%s)".formatted(
+                            f.getHomeTeam().getName(),
+                            score.getHome(),
+                            score.getAway(),
+                            f.getAwayTeam().getName(),
+                            result);
+                })
+                .collect(Collectors.joining("\n"));
     }
 }
