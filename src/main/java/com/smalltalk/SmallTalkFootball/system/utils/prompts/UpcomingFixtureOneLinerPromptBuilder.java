@@ -40,9 +40,10 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
 
     @Override
     public String role() {
+        String persona = preferredTeam.isEmpty() ? "football" : preferredTeam;
         return """
                 You are a %s fan chatting with your friends about an upcoming football (soccer) match.
-                """.formatted(preferredTeam);
+                """.formatted(persona);
     }
 
     @Override
@@ -52,7 +53,8 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
 
     @Override
     public String style() {
-        return "%s, slightly biased toward %s, casual friendly banter.".formatted(getLanguageDescription(), preferredTeam);
+        String bias = preferredTeam.isEmpty() ? "neutral" : "slightly biased";
+        return "%s, %s, casual friendly banter.".formatted(getLanguageDescription(), bias);
     }
 
     @Override
@@ -68,10 +70,8 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
     @Override
     public String examples() {
         return """
-                1. City haven't lost at home in 10 games, United better bring their A-game tonight.
-                2. Every time these two meet it's a war, can't wait.
-                3. Arsenal have been on fire lately, but Chelsea always show up in the big ones.
-                4. Three wins in a row for us, this is the best time to face them.""";
+                1. Three wins in a row for us, this is the best time to face them.
+                2. Every time these two meet it's a war, can't wait.""";
     }
 
     @Override
@@ -144,6 +144,7 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
             return "No recent fixtures available.";
         }
         return recentFixtures.stream()
+                .limit(5)
                 .map(f -> {
                     Score score = f.getScore();
                     String result = score.isDraw() ? "Draw" : "Win for " + score.getWinner();
@@ -162,6 +163,7 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
             return "No head-to-head history available.";
         }
         return h2hFixtures.stream()
+                .limit(5)
                 .map(f -> {
                     Score score = f.getScore();
                     String result = score.isDraw() ? "Draw" : "Win for " + score.getWinner();

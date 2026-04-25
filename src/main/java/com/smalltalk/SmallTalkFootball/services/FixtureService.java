@@ -5,12 +5,10 @@ import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.FixturesResponse;
 import com.smalltalk.SmallTalkFootball.models.dto.MatchDto;
-import com.smalltalk.SmallTalkFootball.models.dto.SummaryMatchDto;
 import com.smalltalk.SmallTalkFootball.repositories.FixtureRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +18,8 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,8 +34,7 @@ public class FixtureService {
 
     public FixtureService(FootballApiService footBallApiService,
                           TeamDataService teamService, FixtureRepository repo,
-                          Mapper<MatchDto, Fixture> fullFixtureMapper,
-                          @Qualifier("summaryFixtureMapper") Mapper<SummaryMatchDto, Fixture> summaryFixtureMapper) {
+                          Mapper<MatchDto, Fixture> fullFixtureMapper) {
         this.footBallApiService = footBallApiService;
         this.teamService = teamService;
         this.repo = repo;
@@ -70,14 +68,28 @@ public class FixtureService {
 
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {
         List<TeamData> allTeamsData = teamService.getTeamsData();
-        Set<Integer> externalIds = getFixturesExternalIds(earliestMatchDay);
-        //TODO change finished false to true if needed
+        Map<Integer, Fixture> existingFixtures = getExistingFixturesByExternalId(earliestMatchDay);
+
         return footBallApiService.getMatches(earliestMatchDay)
                 .stream()
                 .map(fullFixtureMapper::map)
-                .filter(fixture -> !externalIds.contains(fixture.getExternalId()) || !fixture.isFinished())
+                .filter(fixture -> isNewOrNotFinished(fixture, existingFixtures))
+                .map(fixture -> preserveExistingId(fixture, existingFixtures))
                 .map(fixture -> teamService.enrichTeamsData(fixture, allTeamsData))
                 .toList();
+    }
+
+    private boolean isNewOrNotFinished(Fixture fixture, Map<Integer, Fixture> existingFixtures) {
+        Fixture existing = existingFixtures.get(fixture.getExternalId());
+        return existing == null || !existing.isFinished();
+    }
+
+    private Fixture preserveExistingId(Fixture fixture, Map<Integer, Fixture> existingFixtures) {
+        Fixture existing = existingFixtures.get(fixture.getExternalId());
+        if (existing != null) {
+            fixture.setId(existing.getId());
+        }
+        return fixture;
     }
 
     private void deleteOldFixtures(LocalDate deleteMatchesDate) {
@@ -94,11 +106,10 @@ public class FixtureService {
         repo.save(fixture);
     }
 
-    private Set<Integer> getFixturesExternalIds(LocalDate earliestMatchDay) {
+    private Map<Integer, Fixture> getExistingFixturesByExternalId(LocalDate earliestMatchDay) {
         Instant startOfDay = earliestMatchDay.atStartOfDay(ZoneOffset.UTC).toInstant();
         return repo.findByMatchDateTimeAfter(startOfDay).stream()
-                .map(Fixture::getExternalId)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toMap(Fixture::getExternalId, Function.identity(), (a, b) -> b));
     }
 
 }
