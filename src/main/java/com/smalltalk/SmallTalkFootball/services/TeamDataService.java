@@ -6,37 +6,101 @@ import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
+import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.Team;
+import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
+import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
-import com.smalltalk.SmallTalkFootball.system.utils.mappers.TeamDataMapper;
-import lombok.RequiredArgsConstructor;
+import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class TeamDataService {
     private final TeamDataRepository repository;
 
+    private final MongoTemplate mongoTemplate;
+
     private final FootballApiService service;
+
+    private final Mapper<StandingsDtoItem, Standing> standingMapper;
+
+    private final Mapper<TeamDataDto, Update> teamDataUpdateMapper;
+
+    public TeamDataService(
+            TeamDataRepository repository,
+            MongoTemplate mongoTemplate,
+            FootballApiService service,
+            @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper,
+            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper) {
+        this.repository = repository;
+        this.service = service;
+        this.standingMapper = competitionRatingMapper;
+        this.teamDataUpdateMapper = teamDataUpdateMapper;
+        this.mongoTemplate = mongoTemplate;
+    }
 
     public void saveCompetitionTeams() {
 
-        List<TeamData> teams = Arrays.stream(Competition.values())
-                .flatMap(competition -> service.getTeamData(competition).stream()
-                        .map(team -> TeamDataMapper.map(team, competition)))
-                .toList();
+        Arrays.stream(Competition.values()).forEach(competition -> {
+            service.getTeamDataList(competition).forEach(teamDto -> {
 
-        if (!teams.isEmpty()) {
-            repository.deleteAll();
-            repository.saveAll(teams);
-        }
+                Query query = Query.query(Criteria.where("_id").is(teamDto.getTeamKey()));
+
+                Update update = teamDataUpdateMapper.map(teamDto)
+                        .setOnInsert("_id", teamDto.getTeamKey())
+                        .setOnInsert("externalKey", teamDto.getTeamKey())
+                        .setOnInsert("standings", new EnumMap<>(Competition.class));
+
+                mongoTemplate.upsert(query, update, TeamData.class);
+            });
+
+        });
+    }
+
+    public void refreshStandings() {
+        Map<String, TeamData> teamsByExternalKey = repository.findAll().stream()
+                .collect(Collectors.toMap(
+                        TeamData::getId,
+                        Function.identity()
+                ));
+
+        Arrays.stream(Competition.values()).forEach(competition -> {
+            service.getCompetitionStandings(competition).forEach(standingsDto -> {
+
+                TeamData team = teamsByExternalKey.get(standingsDto.getTeamId());
+                if (team == null) return;
+
+                Standing standing = standingMapper.map(standingsDto);
+
+                team.getStandings().put(
+                        standing.getCompetition(),
+                        standing
+                );
+            });
+        });
+
+        repository.saveAll(teamsByExternalKey.values());
     }
 
     public List<TeamData> getTeamsData() {
         return repository.findAll();
+    }
+
+    public TeamData getTeamById(String id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("TeamData not found for id: " + id));
     }
 
     public Fixture enrichTeamsData(Fixture fixture, List<TeamData> teamDataList) {
@@ -85,7 +149,7 @@ public class TeamDataService {
 
     private void fillMissingData(Team team, List<TeamData> teamDataList) {
         teamDataList.stream()
-                .filter(teamData -> team.getExternalId().equals(teamData.getExternalKey()))
+                .filter(teamData -> team.getExternalId().equals(teamData.getId()))
                 .findAny()
                 .ifPresent(teamData -> applyTeamData(team, teamData));
     }
