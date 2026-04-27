@@ -15,7 +15,6 @@ public class AiService {
     private final ChatModel client;
 
     public String generate(String promptText) {
-        log.debug(promptText);
         try {
             var options = OpenAiChatOptions.builder()
                     .reasoningEffort("low")
