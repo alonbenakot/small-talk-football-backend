@@ -23,4 +23,10 @@ public class TeamController {
     public void refreshStandings() {
         service.refreshStandings();
     }
+
+    @DeleteMapping()
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTeams() {
+        service.deleteTeams();
+    }
 }

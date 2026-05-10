@@ -31,6 +31,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (isJwtRequired(request)) {
 
@@ -72,12 +76,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private boolean isAdminOnlyRequest(HttpServletRequest request) {
         String uri = request.getRequestURI();
         String method = request.getMethod();
-        return DELETE.equals(method)
-                || "articles/pending".equals(uri)
-                || (uri.startsWith("/articles/") && PATCH.equals(method))
-                || uri.startsWith("/teams")
-                || uri.startsWith("/fixtures") && POST.equals(method);
+
+        if (DELETE.equals(method)) {
+            return true;
+        }
+
+        if ("articles/pending".equals(uri)) {
+            return true;
+        }
+
+        if (uri.startsWith("/articles/") && PATCH.equals(method)) {
+            return true;
+        }
+
+        if (uri.startsWith("/teams")) {
+            return true;
+        }
+        return uri.startsWith("/fixtures") && (POST.equals(method));
     }
+
 
     private static boolean isJwtRequired(HttpServletRequest request) {
         String uri = request.getRequestURI();

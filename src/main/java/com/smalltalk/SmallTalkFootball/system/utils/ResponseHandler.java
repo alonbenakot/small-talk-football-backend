@@ -40,7 +40,15 @@ public class ResponseHandler {
         try {
             response = apiCall.get();
             if (isValidResponse(response)) {
-                T result = objectMapper.readValue(response.getBody(), typeReference);
+                String body = response.getBody();
+                
+                // Detect HTML error responses (API returning error page instead of JSON)
+                if (body.trim().startsWith("<")) {
+                    log.error("{} - API returned HTML error page instead of JSON", errorMessage);
+                    return Optional.empty();
+                }
+                
+                T result = objectMapper.readValue(body, typeReference);
                 return Optional.ofNullable(result);
             } else {
                 logResponseError(response, errorMessage);

@@ -170,4 +170,7 @@ public class TeamDataService {
         }
     }
 
+    public void deleteTeams() {
+        repository.deleteAll();
+    }
 }
