@@ -235,7 +235,7 @@ public class FixtureAssembler {
         String coach = getCoach(matchDto, teamType);
 
         return Team.builder()
-                .externalId(teamId)
+                .id(teamId)
                 .crest(crest)
                 .name(name)
                 .coach(coach)
@@ -248,7 +248,7 @@ public class FixtureAssembler {
         String name = teamType == TeamType.HOME ? matchDto.getMatchHometeamName() : matchDto.getMatchAwayteamName();
 
         return Team.builder()
-                .externalId(teamId)
+                .id(teamId)
                 .name(name)
                 .build();
     }

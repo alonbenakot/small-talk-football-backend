@@ -60,7 +60,6 @@ public class TeamDataService {
 
                 Update update = teamDataUpdateMapper.map(teamDto)
                         .setOnInsert("_id", teamDto.getTeamKey())
-                        .setOnInsert("externalKey", teamDto.getTeamKey())
                         .setOnInsert("standings", new EnumMap<>(Competition.class));
 
                 mongoTemplate.upsert(query, update, TeamData.class);
@@ -70,7 +69,7 @@ public class TeamDataService {
     }
 
     public void refreshStandings() {
-        Map<String, TeamData> teamsByExternalKey = repository.findAll().stream()
+        Map<String, TeamData> teamsById = repository.findAll().stream()
                 .collect(Collectors.toMap(
                         TeamData::getId,
                         Function.identity()
@@ -79,7 +78,7 @@ public class TeamDataService {
         Arrays.stream(Competition.values()).forEach(competition -> {
             service.getCompetitionStandings(competition).forEach(standingsDto -> {
 
-                TeamData team = teamsByExternalKey.get(standingsDto.getTeamId());
+                TeamData team = teamsById.get(standingsDto.getTeamId());
                 if (team == null) return;
 
                 Standing standing = standingMapper.map(standingsDto);
@@ -91,7 +90,7 @@ public class TeamDataService {
             });
         });
 
-        repository.saveAll(teamsByExternalKey.values());
+        repository.saveAll(teamsById.values());
     }
 
     public List<TeamData> getTeamsData() {
@@ -149,7 +148,7 @@ public class TeamDataService {
 
     private void fillMissingData(Team team, List<TeamData> teamDataList) {
         teamDataList.stream()
-                .filter(teamData -> team.getExternalId().equals(teamData.getId()))
+                .filter(teamData -> team.getId().equals(teamData.getId()))
                 .findAny()
                 .ifPresent(teamData -> applyTeamData(team, teamData));
     }
