@@ -36,8 +36,8 @@ public class PromptBuilderFactory {
             return new FinishedFixtureOneLinerPromptBuilder(fixture, teamType, language);
         }
 
-        String homeTeamId = fixture.getHomeTeam().getExternalId();
-        String awayTeamId = fixture.getAwayTeam().getExternalId();
+        String homeTeamId = fixture.getHomeTeam().getId();
+        String awayTeamId = fixture.getAwayTeam().getId();
 
         HeadToHeadData headToHeadData = footballApiService.
                 getHeadToHeadData(homeTeamId, awayTeamId)

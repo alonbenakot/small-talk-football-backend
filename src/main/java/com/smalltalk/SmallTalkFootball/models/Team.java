@@ -12,7 +12,7 @@ import lombok.ToString;
 public class Team {
     private String name;
 
-    private String externalId;
+    private String id;
 
     private String formation;
 
