@@ -32,3 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 /.run/SmallTalkFootballApplication.run.xml
+/.kiro/steering/product.md
+/.kiro/steering/structure.md
+/.kiro/steering/tech.md
+
+### Docker ###
+.env
