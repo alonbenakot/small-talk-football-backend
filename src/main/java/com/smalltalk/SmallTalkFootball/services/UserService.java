@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.User;
 import com.smalltalk.SmallTalkFootball.enums.Role;
+import com.smalltalk.SmallTalkFootball.events.UserCreatedEvent;
 import com.smalltalk.SmallTalkFootball.models.LoginInput;
 import com.smalltalk.SmallTalkFootball.models.UserIndications;
 import com.smalltalk.SmallTalkFootball.models.UserResponse;
@@ -9,6 +10,7 @@ import com.smalltalk.SmallTalkFootball.repositories.UserRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.UserException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,8 +21,7 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository repository;
-
-
+    private final ApplicationEventPublisher eventPublisher;
 
     public UserResponse addUser(User user) throws UserException {
         if (repository.existsByEmail(user.getEmail())) {
@@ -29,8 +30,12 @@ public class UserService {
 
         user.setRole(Role.MEMBER);
         user.setUserIndications(new UserIndications());
-
-        return new UserResponse(repository.save(user), Messages.WELCOME_MEMBER.formatted(user.getFirstName()));
+        
+        User savedUser = repository.save(user);
+        
+        eventPublisher.publishEvent(new UserCreatedEvent(this, savedUser));
+        
+        return new UserResponse(savedUser, Messages.WELCOME_MEMBER.formatted(user.getFirstName()));
     }
 
     public User getUserByEmail(String email) {
