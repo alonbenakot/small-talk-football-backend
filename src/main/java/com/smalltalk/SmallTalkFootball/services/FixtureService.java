@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +40,12 @@ public class FixtureService {
         this.fullFixtureMapper = fullFixtureMapper;
     }
 
-    public List<Fixture> fetchAndSaveFixtures(int matchDays) {
+    public List<Fixture> fetchAndSaveFixtures(int matchDays, int matchDaysIntoFuture) {
 
         LocalDate earliestMatchDay = LocalDate.now().minusDays(matchDays);
-        List<Fixture> fixtures = fetchNewFixtures(earliestMatchDay);
+        LocalDate latestMatchDay = LocalDate.now().plusDays(matchDaysIntoFuture);
+
+        List<Fixture> fixtures = fetchNewFixtures(earliestMatchDay, latestMatchDay);
 
         if (!fixtures.isEmpty()) {
             deleteOldFixtures(earliestMatchDay);
@@ -59,18 +60,22 @@ public class FixtureService {
     public FixturesResponse getFixtures() {
         List<Fixture> fixtures = repo.findAll();
         fixtures.sort(Comparator.comparing(Fixture::getCompetition));
-        return new FixturesResponse(Arrays.asList(Competition.values()), fixtures);
+        List<Competition> competitionsWithFixtures = fixtures.stream()
+                .map(Fixture::getCompetition)
+                .distinct()
+                .toList();
+        return new FixturesResponse(competitionsWithFixtures, fixtures);
     }
 
     public Fixture getFixture(String id) throws SmallTalkException {
         return repo.findById(id).orElseThrow(() -> new SmallTalkException("Invalid fixture id"));
     }
 
-    private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay) {
+    private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay, LocalDate latestMatchDay) {
         List<TeamData> allTeamsData = teamService.getTeamsData();
         Map<Integer, Fixture> existingFixtures = getExistingFixturesByExternalId(earliestMatchDay);
 
-        return footBallApiService.getMatches(earliestMatchDay)
+        return footBallApiService.getMatches(earliestMatchDay, latestMatchDay)
                 .stream()
                 .map(fullFixtureMapper::map)
                 .filter(fixture -> isNewOrNotFinished(fixture, existingFixtures))
