@@ -29,7 +29,7 @@ public class UserService {
         }
 
         user.setRole(Role.MEMBER);
-        user.setUserIndications(new UserIndications());
+        user.setUserIndications(new UserIndications(false, user.getUserIndications().getPreferredLanguage()));
         
         User savedUser = repository.save(user);
         
