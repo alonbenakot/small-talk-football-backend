@@ -22,6 +22,7 @@ import java.util.Objects;
 public class FixtureAssembler {
 
     public final String FINISHED = "Finished";
+    public final String AFTER_PENALTIES = "After Pen.";
 
     public Fixture assembleFromFullMatch(MatchDto matchDto) {
         return Fixture.builder()
@@ -31,7 +32,8 @@ public class FixtureAssembler {
                 .homeTeam(mapTeam(matchDto, TeamType.HOME))
                 .awayTeam(mapTeam(matchDto, TeamType.AWAY))
                 .matchDateTime(mapTime(matchDto))
-                .finished(FINISHED.equals(matchDto.getMatchStatus()))
+                .finished(FINISHED.equals(matchDto.getMatchStatus()) ||
+                        AFTER_PENALTIES.equals(matchDto.getMatchStatus()))
                 .score(mapScore(matchDto))
                 .goals(mapGoals(matchDto))
                 .statistics(mapStatistics(matchDto.getStatistics()))
@@ -179,6 +181,13 @@ public class FixtureAssembler {
             homeScore = homeAndAwayScore[0];
             awayScore = homeAndAwayScore[1];
         }
+
+        if (AFTER_PENALTIES.equals(matchDto.getMatchStatus())) {
+            int[] homeAndAwayScore = deriveScoreFromGoals(matchDto);
+            homeScore = homeAndAwayScore[0];
+            awayScore = homeAndAwayScore[1];
+        }
+
         boolean isDraw = homeScore == awayScore;
 
         String winner = isDraw ? null

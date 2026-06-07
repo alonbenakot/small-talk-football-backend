@@ -22,7 +22,7 @@ public class FixturesJob {
     @Scheduled(cron = "0 40 0,19,21,22 * * *", zone = "Asia/Jerusalem")
     public void runJob() {
         service.fetchAndSaveFixtures(maxMatchDays, matchDaysIntoFuture);
-        log.debug("FixturesJob completed");
+        log.info("FixturesJob completed");
     }
 
 }
