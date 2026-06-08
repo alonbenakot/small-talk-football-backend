@@ -41,9 +41,8 @@ public class ResponseHandler {
             response = apiCall.get();
             if (isValidResponse(response)) {
                 String body = response.getBody();
-                
                 // Detect HTML error responses (API returning error page instead of JSON)
-                if (body.trim().startsWith("<")) {
+                if (body != null && body.trim().startsWith("<")) {
                     log.error("{} - API returned HTML error page instead of JSON", errorMessage);
                     return Optional.empty();
                 }

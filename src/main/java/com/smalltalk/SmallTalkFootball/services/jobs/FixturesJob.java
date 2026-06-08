@@ -16,11 +16,22 @@ public class FixturesJob {
 
     @Value("${max.match.days}")
     private int maxMatchDays;
+    @Value("${match.days.into.future}")
+    private int matchDaysIntoFuture;
 
-    @Scheduled(cron = "0 40 0,19,21,22 * * *", zone = "Asia/Jerusalem")
-    public void runJob() {
-        service.fetchAndSaveFixtures(maxMatchDays);
-        log.debug("FixturesJob completed");
+    @Scheduled(cron = "0 0 7,20,21 * * *", zone = "Asia/Jerusalem")
+    public void runJobDay() {
+        runJob();
+    }
+
+    @Scheduled(cron = "0 30 23,0 * * *", zone = "Asia/Jerusalem")
+    public void runJobNight() {
+        runJob();
+    }
+
+    private void runJob() {
+        service.fetchAndSaveFixtures(maxMatchDays, matchDaysIntoFuture);
+        log.info("FixturesJob completed");
     }
 
 }

@@ -37,9 +37,9 @@ public class FootballApiService {
         this.restClient = builder.baseUrl(BASE_URL).build();
     }
 
-    public List<MatchDto> getMatches(LocalDate fromDate) {
+    public List<MatchDto> getMatches(LocalDate fromDate, LocalDate toDate) {
         return Arrays.stream(Competition.values())
-                .flatMap(competition -> fetchMatchesByCompetition(competition, fromDate))
+                .flatMap(competition -> fetchMatchesByCompetition(competition, fromDate, toDate))
                 .toList();
     }
 
@@ -118,14 +118,14 @@ public class FootballApiService {
                 .toList();
     }
 
-    private Stream<MatchDto> fetchMatchesByCompetition(Competition competition, LocalDate fromDate) {
+    private Stream<MatchDto> fetchMatchesByCompetition(Competition competition, LocalDate fromDate, LocalDate toDate) {
         return ResponseHandler.process(
                         () -> restClient.get()
                                 .uri(uriBuilder -> uriBuilder
                                         .queryParam("APIkey", apiKey)
                                         .queryParam("action", "get_events")
                                         .queryParam("from", fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                                        .queryParam("to", LocalDate.now().plusDays(7).format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                        .queryParam("to", toDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
                                         .queryParam("league_id", competition.getCode())
                                         .queryParam("timezone", "UTC")
                                         .build())

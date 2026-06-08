@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 @Getter
 public enum Competition {
+    WORLD_CUP(28),
     PREMIER_LEAGUE(152),
     LA_LIGA(302),
     BUNDESLIGA(175),

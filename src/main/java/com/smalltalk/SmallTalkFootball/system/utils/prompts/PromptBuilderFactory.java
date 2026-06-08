@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.system.utils.prompts;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
+import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.HeadToHeadData;
@@ -32,6 +33,11 @@ public class PromptBuilderFactory {
     }
 
     public PromptBuilder create(Fixture fixture, TeamType teamType, Language language) {
+        if (fixture.getCompetition() == Competition.WORLD_CUP) {
+            fixture.getHomeTeam().setCoach(null);
+            fixture.getAwayTeam().setCoach(null);
+        }
+
         if (fixture.isFinished()) {
             return new FinishedFixtureOneLinerPromptBuilder(fixture, teamType, language);
         }
@@ -43,7 +49,6 @@ public class PromptBuilderFactory {
                 getHeadToHeadData(homeTeamId, awayTeamId)
                 .map(headToHeadMapper::map)
                 .orElseThrow(() -> new IllegalStateException("Missing head-to-head data for fixture " + fixture.getId()));
-        log.debug(headToHeadData.toString());
 
         TeamData homeTeamData = teamDataService.getTeamById(homeTeamId);
         TeamData awayTeamData = teamDataService.getTeamById(awayTeamId);

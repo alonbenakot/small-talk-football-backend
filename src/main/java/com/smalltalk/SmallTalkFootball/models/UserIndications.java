@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.models;
 
+import com.smalltalk.SmallTalkFootball.enums.Language;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserIndications {
 
-    private boolean pendingArticles = false;
+    private boolean pendingArticles;
+
+    private Language preferredLanguage;
 
 }
