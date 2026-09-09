@@ -1,0 +1,823 @@
+# Team one-liner — implementation plan
+
+A "team small talk" feature: given a team, return one or two sentences a user can say that make them sound
+current on that team — league position, form, a notable player fact — **plus** the dry facts behind it so the
+frontend can render a card: crest, coach, venue, standing, recent results, next match, notable players.
+
+It mirrors the existing match one-liner but is keyed on a team rather than a fixture, and the sentence adapts to
+who is speaking: a fan of the team, a fan of a rival, or a neutral.
+
+> **Reading order:** the build order is immediately below — start there, then read only the sections the phase
+> you're on refers to. Sections 1–11 are reference material, not a sequence to work through. The appendix holds a
+> verified live `get_teams` response; trust it over the published apifootball documentation, which is wrong about
+> that endpoint in both directions.
+>
+> Revised after review. Decisions taken: route lives on `OneLinerController`; bug #3 is fixed with
+> `@JsonProperty`; three speaker perspectives; derived repository query; production runs a 30-day fixture window;
+> no TTL — freshness is derived from the team's last match; WORLD_CUP-only teams are rejected; player data gets
+> its own collection because the player one-liner is the next feature.
+
+---
+
+---
+
+## Start here — build order, grouped into sessions
+
+Ten steps in four phases. Each phase is independently verifiable and sized for one session — open a fresh session
+per phase rather than carrying the whole feature in one context. The opening prompt is literally
+*"Read `.claude/docs/team-oneliner.md` and implement phase N."*
+
+**Every phase ships its own tests.** They are listed inline below, per step, and a phase is not finished until
+they pass alongside the existing suite. Do not defer tests to a later phase — §11 is a reference index of the
+same list, organised by component, not a separate stage of work. Test conventions live in `CLAUDE.md`: plain
+JUnit/Mockito with no Spring context wherever possible, `@WebMvcTest` with `excludeFilters` for controllers, and
+`JsonFixtures.parse` for anything deserialised from apifootball. Run `./mvnw test` (~15s, no Docker or network).
+
+### Phase 1 — Groundwork (steps 1–2)
+
+Small, self-contained, no new behaviour. First because everything after it depends on DTO binding actually
+working.
+
+1. Fix bug #3 from `bugs.md` with `@JsonProperty`, using the snake_case wire names verbatim (§7). Apply through
+   `MatchDto`, `MatchLineup` and `LineUp`. Mark #3 fixed in `bugs.md`.
+   - **Tests:** rewrite the four `FixtureAssemblerTest.UnboundFields` cases to assert correct binding instead of
+     the pinned defect — they are *expected* to fail until you do, per the `CLAUDE.md` note on pinning tests. Add
+     a `MatchDto` binding test through `JsonFixtures.parse`, so the `SNAKE_CASE`-plus-explicit-`@JsonProperty`
+     interaction is genuinely exercised rather than assumed.
+2. Extract `Language.getDescription()` and the `PromptPhrasing` helper (§8). Pure refactor.
+   - **Tests:** none new. `PromptBuilderTest` already covers both call sites and must stay green untouched — if
+     it needs editing, the refactor changed behaviour and went wrong.
+
+**Done when:** `./mvnw test` is green, no test was deleted, and `FixtureAssembler` yields non-null team names and
+coaches from a payload that carries them.
+
+### Phase 2 — Data layer (steps 3–4)
+
+No API exploration needed: a live `get_teams` response is in the appendix with the full field inventory and a
+traps table. Write the DTOs from that, **not** from the published apifootball documentation, which is wrong about
+this endpoint in both directions.
+
+3. `TeamDataDto` gains `players` and the nested `venue` object; add `PlayerItem` and `VenueDto`; add the
+   `PlayerData` document, its repository and mapper; write players in `saveCompetitionTeams` (§4.5, §4.6).
+   - **Tests:** `PlayerDataMapperTest` — blank strings parse to null rather than throwing (a third of every squad
+     is blank across all stats); non-numeric values tolerated; `player_injured` `"Yes"`/`"No"` becomes a boolean;
+     an empty `players` array is normal for national teams, mirroring the existing empty-coaches case in
+     `TeamDataUpdateMapperTest`. Extend `TeamDataUpdateMapperTest` for venue and founded. Add a `TeamDataDto`
+     binding test via `JsonFixtures.parse` using a player object copied from the appendix.
+4. `getTopScorers(Competition)` on `FootballApiService`, the `leagueScorerRank` backfill, and the notable-player
+   ranking (§4.4, §6.4).
+   - **Tests:** extend `FootballApiServiceTest` for `getTopScorers` against
+     `MockRestServiceServer.bindTo(RestClient.Builder)`, with `ExpectedCount` if it iterates
+     `Competition.values()`. Add a ranking test: exactly 10 returned; the first-choice goalkeeper is always among
+     them, including when no keeper has appearances; zero-appearance outfielders excluded; the per-position cap
+     holds; a high-volume midfielder places ahead of a fringe forward.
+
+**Done when:** the suite is green and a real `POST /teams` against a live key populates `PlayerData` for every
+tracked competition, with the ranking returning 10 players including the first-choice keeper.
+
+### Phase 3 — The feature (steps 5–7)
+
+The subtle phase. The traps here are ones tests catch only if you write them deliberately.
+
+5. `Perspective` enum; `TeamOneLiner` on `TeamData` with `@Builder.Default`; `TeamOneLinerPromptBuilder`; the
+   `PromptBuilderFactory` overload (§3, §5, §6).
+   - **Tests:** `TeamOneLinerPromptBuilderTest` — one case per `Perspective` asserting the role and style text
+     genuinely differ; the data block carries position, points, form, next fixture and notable players; a missing
+     standing and an empty form list degrade to readable lines rather than NPEs; an empty notable-players list is
+     handled. Extend `OneLinerTest`'s style for `TeamOneLiner`: equality keyed on language + competition +
+     perspective while ignoring `text`.
+6. The by-team fixture queries and their service methods (§4.2).
+   - **Tests:** service-level with mocked repositories. Note the queries themselves have **no** integration
+     coverage — there are no MongoDB tests in this project, and a mis-resolved nested path returns empty rather
+     than failing, so verify them once against a real database before merging.
+7. `TeamOneLinersService`, `TeamFacts`, `TeamSmallTalk`, the `GET /one-liners/teams/{teamId}` route, and turning
+   `getTeamById`'s `IllegalStateException` into a `NotFoundException` (§2, §9).
+   - **Tests:** `TeamOneLinersServiceTest` (Mockito) — cache hit when nothing changed; regeneration after a newer
+     finished fixture; regeneration after a standings move with no new fixture; independent entries per
+     perspective and per language; and specifically that `replaceOneLiner` overwrites, since `add` on a Set whose
+     equality ignores `text` is a silent no-op (§5). Prompt-selection test: injured regular beats a higher
+     scorer, league scorer rank beats raw goals, a merely-top-of-a-poor-squad scorer qualifies for nothing.
+     Extend `OneLinerControllerTest` for the new route (`@WebMvcTest`, `excludeFilters` for `JwtAuthFilter`),
+     covering a 400 for a WORLD_CUP-only team and a 404 for an unknown id. Add one `JwtAuthFilterTest` assertion
+     that `GET /one-liners/teams/{id}` is public, so a future filter edit cannot silently gate it.
+
+**Done when:** the suite is green and the endpoint returns a cached one-liner on the second call, a regenerated
+one after a new finished fixture or a standings move, and a 400 for a WORLD_CUP-only team.
+
+### Phase 4 — Operations and tuning (steps 8–9)
+
+8. `TeamsJob` on a daily cron for the squad refresh (§4.7).
+   - **Tests:** none beyond asserting the job delegates — the existing jobs carry no tests either, and a cron
+     expression is not meaningfully testable here.
+9. Manual smoke against a real database and a real OpenAI key. Read actual output for all three perspectives and
+   tune `examples()` and `constraints()` from what comes back. **This is where the feature is made good** — the
+   prompt text in §6 is a starting point, not a finished artefact. Budget real time for it.
+   - **Tests:** none new, but any prompt change must leave `TeamOneLinerPromptBuilderTest` green. If a tuning
+     change breaks it, decide deliberately whether the test or the prompt was wrong.
+
+**Done when:** all three perspectives produce sentences you would actually say out loud.
+
+### Later
+
+10. `get_news` by `team_id`, if the sentences need more than the table and the form (deferred; terms recorded in
+    "Decisions taken"). Then the player one-liner, which `PlayerData` unblocks.
+
+
+## 1. What already exists (and what we reuse)
+
+| Concern | Existing code | Reuse |
+|---|---|---|
+| Prompt assembly | `PromptBuilder` (default `buildPrompt()` templating role/task/style/structure/constraints/examples/data) | Implement a third builder, no new template strings |
+| Prompt selection | `PromptBuilderFactory.create(fixture, teamType, language)` | Add a team-flavoured overload |
+| LLM call | `AiService.generate(String)` | As is |
+| Cached one-liner | `OneLiner` (equals/hashCode on `teamType` + `language`, ignoring `text`), `Set<OneLiner>` on `Fixture` | Same pattern, new type keyed on language + competition + perspective |
+| Team facts | `TeamData` (`name`, `coach`, `crest`, `Map<Competition, Standing>`), refreshed by `POST /teams` and `StandingsJob` | Primary data source |
+| Recent form / next match | `Fixture` collection — a 30-day window in production | Sole source, no extra API call |
+| External API | `FootballApiService` — every call through `ResponseHandler.process(...)`, never throws | Extend, preserve the contract |
+
+`UpcomingFixtureOneLinerPromptBuilder` already phrases a standing and a recent-form list for a single team
+(`phraseStanding`, `phraseRecentForm`). Those are the seed of the team builder and should be extracted rather
+than copied a third time (see §8).
+
+---
+
+## 2. Endpoint
+
+```
+GET /one-liners/teams/{teamId}?lang=BRITISH&perspective=FAN[&competition=PREMIER_LEAGUE]
+```
+
+On the existing `OneLinerController`. No collision with `GET /one-liners/{fixtureId}` — different segment counts —
+and `/one-liners` is not gated by `JwtAuthFilter`, so **no security change is needed**. That is the main reason
+this route wins over `GET /teams/{teamId}/small-talk`: `isJwtRequiredTeams` currently gates *all* of `/teams` as
+admin-only, and widening it would mean touching the hand-maintained routing table that `JwtAuthFilterTest` pins.
+
+```java
+@GetMapping("/teams/{teamId}")
+@ResponseStatus(HttpStatus.OK)
+public SmallTalkResponse<TeamSmallTalk> getTeamOneLiner(@PathVariable String teamId,
+                                                        @RequestParam Language lang,
+                                                        @RequestParam(defaultValue = "NEUTRAL") Perspective perspective,
+                                                        @RequestParam(required = false) Competition competition)
+```
+
+Response — `SmallTalkResponse<TeamSmallTalk>`:
+
+```jsonc
+{
+  "data": {
+    "oneLiner": {
+      "language": "BRITISH", "competition": "PREMIER_LEAGUE", "perspective": "FAN",
+      "text": "Four on the bounce and top of the table — Saka's carrying them right now.",
+      "generatedAt": "2026-09-09T10:02:11Z"
+    },
+    "facts": {
+      "id": "2611", "name": "Arsenal", "crest": "https://.../arsenal.png",
+      "coach": "Mikel Arteta", "founded": "1886",
+      "venue": { "name": "Emirates Stadium", "city": "London", "capacity": "60704", "surface": "grass" },
+      "primaryCompetition": "PREMIER_LEAGUE",
+      "standings": {
+        "PREMIER_LEAGUE": { "position": 1, "playedMatches": 5, "points": 13,
+                            "overall": {"wins": 4, "draws": 1, "losses": 0}, "home": {...}, "away": {...} },
+        "CHAMPIONS_LEAGUE": { ... }
+      },
+      "recentForm": [ { "competition": "PREMIER_LEAGUE", "date": "...", "opponent": "Chelsea",
+                        "home": true, "score": "2-1", "result": "WIN" } ],
+      "nextFixture": { "fixtureId": "...", "opponent": "Man City", "home": false, "kickOff": "..." },
+      "notablePlayers": [ { "id": "...", "name": "Bukayo Saka", "number": "7", "position": "Midfielders",
+                            "age": "24", "matchesPlayed": 5, "goals": 3, "assists": 2, "shotsTotal": 21,
+                            "passesAccuracy": 84, "rating": "7.8", "injured": false,
+                            "leagueScorerRank": 3 } ]   // 10 of them (§6.4)
+    }
+  },
+  "systemMessage": {...},
+  "statusCode": 200
+}
+```
+
+`lang` is required, matching the match endpoint. `perspective` defaults to `NEUTRAL`. `competition` is optional —
+see §6.3. `facts.standings` returns every competition we hold so the FE can render tabs without a second call,
+while `primaryCompetition` tells it (and the prompt) which one the sentence is about.
+
+---
+
+## 3. Perspective — three speaker modes
+
+New enum `enums/Perspective`:
+
+```java
+public enum Perspective { FAN, RIVAL_FAN, NEUTRAL }
+```
+
+The same facts, three voices. This is a prompt-level concern only — no extra data is fetched — and it maps
+cleanly onto the builder's `role()` / `style()` / `examples()`:
+
+| | role | style | example output |
+|---|---|---|---|
+| `FAN` | "You support {team} and you're talking about your club with friends." | partisan, optimistic, forgiving of bad results | *"Four on the bounce and top of the table — nobody's stopping us right now."* |
+| `RIVAL_FAN` | "You support a rival club and you're winding up a {team} fan." | teasing, needling, seizes on any weakness in the data | *"Second is still second, and they've drawn three of five. Bottling it again."* |
+| `NEUTRAL` | "You follow football closely and you're making conversation about {team}." | observational, even-handed, no allegiance | *"Arsenal are top on thirteen points, unbeaten but with three draws."* |
+
+Notes:
+
+- `RIVAL_FAN` needs the firmest `constraints()` — it is the mode most likely to invent a jibe about a transfer or
+  a manager rumour that isn't in the data. Add an explicit "mock only what's in the data; if the data is all
+  positive, be grudging rather than inventing a flaw" line, plus an example demonstrating exactly that case.
+- We do **not** need to know *which* rival. Naming a specific rival club would require a rivalry map we don't
+  have, and would let the model reach for stale training-data feuds. Keep it as an unnamed rival voice.
+- `perspective` is part of the cache key (§5), so a team holds up to 3 × 3 × n one-liners (perspectives ×
+  languages × competitions). That's a handful of short strings per team — no storage concern.
+
+The existing match one-liner uses `TeamType` (HOME/AWAY) for its bias and is unaffected. Worth noting for later:
+`Perspective` is the more expressive model, and the match endpoint could migrate to it eventually — out of scope
+here.
+
+---
+
+## 4. Where the dry facts come from
+
+### 4.1 Already in Mongo — free
+`TeamData` gives name, coach, crest and the per-competition `Standing` (position, played, points, and
+overall/home/away `WinLossDraw`). `StandingsJob` refreshes it three times a day.
+
+### 4.2 Recent form and next fixture — our own `Fixture` collection
+Confirmed: production runs `MAX_MATCH_DAYS=30`, not the 7 in the default (`application.properties:13` is
+`${MAX_MATCH_DAYS:7}`; only the local/test default is 7). Thirty days back is 4–8 matches for a club playing
+league plus cup — plenty for a form line. **No extra API call is needed for form**, and the `get_events`
+`team_id` fallback from the first draft is dropped.
+
+One caveat to keep in mind: `max.match.days` is also what `FixtureService.deleteOldFixtures` prunes against, so
+the form depth is exactly the retention window. If that env var is ever lowered, this feature degrades quietly.
+Worth a log line when a team returns fewer than two finished fixtures.
+
+Repository query, in the derived-name style you prefer:
+
+```java
+List<Fixture> findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(String homeTeamId, String awayTeamId, Sort sort);
+```
+
+Two things about that method name, both fine but non-obvious:
+
+- Spring Data's `PartTree` splits on `Or` first and `And`s within each branch, so this parses as
+  `(finished = true AND homeTeam.id = ?0) OR (finished = true AND awayTeam.id = ?1)` — the intended meaning.
+  There is no parenthesis syntax, so repeating `FinishedTrue` in both branches is required, not redundant.
+- `HomeTeamId` has no matching `homeTeamId` property on `Fixture`, so Spring Data falls back to the nested path
+  `homeTeam.id`. That resolution is silent — a typo would produce an always-empty query rather than an error, so
+  it needs the manual check noted in §10.
+
+The service passes the same `teamId` as both arguments and sorts by `matchDateTime` descending, limit 5. The
+"next fixture" is the mirror query with `FinishedFalse`, ascending, first result.
+
+### 4.3 Squad and venue — already paid for, currently discarded
+Verified against a live call (full response in the appendix): `get_teams` — which
+`TeamDataService.saveCompetitionTeams` already calls once per competition — returns, alongside `coaches`:
+
+- **`venue`: a nested object**, not the flat `venue_*` fields the documentation page implies —
+  `{ venue_name, venue_address, venue_city, venue_capacity, venue_surface }`. The DTO needs a nested type.
+- **`players`: an array of 42-field objects**, far richer than documented. Beyond the basics it carries
+  `player_complete_name`, `player_is_captain`, `player_shots_total`, `player_key_passes`, `player_passes`,
+  `player_passes_accuracy`, `player_tackles`, `player_interceptions`, `player_clearances`, `player_blocks`,
+  `player_duels_total`, `player_duels_won`, `player_dribble_attempts`, `player_dribble_succ`,
+  `player_fouls_committed`, `player_dispossesed` *(sic)*, `player_woordworks` *(sic)*, the four penalty counters,
+  and — for keepers — `player_saves`, `player_inside_box_saves`, `player_goals_conceded`.
+- **team level:** `team_key`, `team_name`, `team_country`, `team_founded`, `team_badge`.
+
+`TeamDataDto` declares only `team_key`, `team_name`, `team_badge` and `coaches`, so every squad refresh throws
+the rest away. Binding it costs one API call: zero.
+
+**Four things the live response settles, all of which change the mapper:**
+
+1. **`player_minutes` does not exist here.** The documentation lists it; the payload does not. Ranking works
+   without it (§6.4).
+2. **Unused players have `""`, not `"0"`, in every stat field.** Manchester City list 24 players and only 15 have
+   any appearances at all; the other 9 are blank across the board. So the "has played" filter is
+   `!matchesPlayed.isBlank()`, never `matchesPlayed == 0`, and every numeric parse must treat blank as absent
+   rather than throwing.
+3. **`player_passes_accuracy` is a count, not a percentage.** Ruben Dias: `player_passes: "478"`,
+   `player_passes_accuracy: "454"`. It is accurate passes *completed*, so it must be used as a ratio against
+   `player_passes` or not at all — reading it as a percentage would rank every high-volume passer at 400%+.
+4. **`player_injured` is `"Yes"` / `"No"`**, a string, and it is populated (both values appear in the league).
+   `player_country` and several others are frequently empty even for regulars, so no field should be assumed
+   present.
+
+### 4.4 Top scorers — cheap and genuinely "current"
+`get_topscorers&league_id=` returns `player_place`, `player_name`, `player_key`, `team_name`, `team_key`, `goals`,
+`assists`, `penalty_goals`. Filtering by `team_key` gives a fact that sounds like real knowledge — *"their striker
+is third in the league scoring charts"* — for one call per competition, on the same cadence as `StandingsJob`.
+
+Worth including in phase 1: it's the difference between a one-liner about the table and one about a person.
+Store `leagueScorerRank`, `goals` and `assists` on the player record (§4.6).
+
+### 4.5 There is no bulk player endpoint — squads come from `get_teams`
+
+Worth stating plainly, because it is counter-intuitive: **apifootball has no way to fetch a squad by team.**
+`get_players` takes `player_id` **or** `player_name` and nothing else — no `team_id` parameter. So the only route
+to a squad is the `players` array embedded in the `get_teams` response we already call once per competition.
+
+That means the ingestion path is:
+
+```
+saveCompetitionTeams()                       // existing, one get_teams call per Competition
+  └─ for each TeamDataDto
+       ├─ upsert TeamData      (existing, + venue and founded)
+       └─ upsert PlayerData    (NEW — one document per entry in the dto's players array)
+```
+
+No new API call, no new job beyond the `TeamsJob` in §4.7. The saving of players lives inside
+`TeamDataService.saveCompetitionTeams`, next to the team upsert that is already there.
+
+`getPlayerById` / `getPlayersByName` **have been added to `FootballApiService`** (with `PlayerDto` and tests) so
+the real response shape can be checked against a live key. They are not on this feature's path — they exist for
+the player one-liner, where a single-player refresh is exactly what's wanted. `get_players` is also the only source of `player_birthdate`,
+`player_country` and `player_minutes` — none of which `get_teams` returns. Minutes aren't needed for this
+feature (§6.4 ranks without them), but a targeted per-player top-up is the route if the player one-liner wants
+them, rather than a sweep of every squad.
+
+### 4.6 Player data gets its own collection
+Since the player one-liner is the next feature, embedding the squad inside `TeamData` would have to be undone
+immediately — a player one-liner needs to look a player up by id, not scan every team document.
+
+Plan: a new `@Document PlayerData` collection, written from the same `get_teams` response.
+
+```java
+@Document @Data @Builder @NoArgsConstructor @AllArgsConstructor
+public class PlayerData {
+    @Id private String id;            // player_id
+    private String teamId;            // indexed — the by-team lookup this feature needs
+    private String teamName;
+    private String name;
+    private String image;
+    private String number;
+    private String position;          // player_type: Goalkeepers / Defenders / Midfielders / Forwards
+    private String age;
+    private boolean captain;          // player_is_captain, "1" / "" 
+    private Integer matchesPlayed;    // blank for unused players — Integer, not int
+    private Integer goals;
+    private Integer assists;
+    private Integer shotsTotal;
+    private Integer keyPasses;
+    private Integer passes;
+    private Integer passesAccurate;   // player_passes_accuracy — a COUNT, renamed to say so
+    private Integer tackles;
+    private Integer interceptions;
+    private Integer clearances;
+    private Integer duelsTotal;
+    private Integer duelsWon;
+    private Integer saves;            // keepers
+    private Integer insideBoxSaves;   // keepers
+    private Integer goalsConceded;    // keepers
+    private Integer yellowCards;
+    private Integer redCards;
+    private boolean injured;
+    private String rating;
+    private Integer leagueScorerRank; // from get_topscorers, null when unranked
+}
+```
+
+- `TeamData` keeps `venue` and `founded` but **not** the squad; the service joins via
+  `PlayerDataRepository.findByTeamId(teamId)`.
+- Written in `saveCompetitionTeams` with the same `MongoTemplate` upsert pattern already used for teams, so a
+  refresh updates in place rather than churning ids.
+- Note `spring.data.mongodb.auto-index-creation=false` in the test properties: an `@Indexed` on `teamId` is
+  correct for production and inert in tests, which is exactly why that flag exists.
+- Numeric fields arrive as strings from apifootball (every field in that API is a string). Parse them in the
+  mapper, tolerantly — a blank `player_goals` must yield `0` or `null`, never a thrown `NumberFormatException`,
+  because one bad row would otherwise abort a whole squad refresh (the shape of bug #8).
+
+### 4.7 Squad freshness
+`saveCompetitionTeams` runs only from the manual admin `POST /teams` — there is no job for it (`StandingsJob`
+only refreshes standings). Squad stats (`player_goals`, `player_injured`, `player_rating`) change weekly, so
+without a job the "notable players" data goes stale and the one-liners get subtly wrong.
+
+Add `TeamsJob` alongside the other two in `services/jobs`, on a daily cron in `Asia/Jerusalem`, calling
+`saveCompetitionTeams()`. One `get_teams` call per competition per day: 7 calls.
+
+### 4.8 Considered and deferred: `get_news`
+`get_news` accepts `team_id` and returns `title`, `content`, `published_at`, `sources` — on paper the ideal source
+for "important relevant facts". Deferred to phase 2 for two reasons: it is untrusted third-party text flowing
+straight into an LLM prompt (headline-only, truncated, and explicitly framed as data would be the minimum
+handling), and it changes the feature's character from "reads the table" to "reads the press". Flagged as an open
+question rather than dropped — it is the single highest-value addition after this ships.
+
+---
+
+## 5. Caching and freshness (no TTL)
+
+**What TTL meant:** "time to live" — cache the sentence for N hours, then regenerate regardless. It's the blunt
+version. Your instinct is better and it's what the plan now does: compare against the team's last match.
+
+Rule: a cached one-liner is **stale** when either
+1. the team has a finished fixture whose `matchDateTime` is after `generatedAt` — the team has played since; or
+2. the stored standings snapshot no longer matches the current one — position or points moved.
+
+(2) matters because a team's league position changes when *other* teams play. Without it, a team in a two-week
+international break keeps a one-liner saying "top of the table" after being overtaken. It costs one small
+comparison and no new configuration — which is why there is no `team.oneliner.ttl` property, and therefore
+nothing to add to the shadowing `src/test/resources/application.properties`.
+
+```java
+@Getter @Builder @AllArgsConstructor
+public class TeamOneLiner {
+    Language language;
+    Competition competition;
+    Perspective perspective;
+    String text;
+    Instant generatedAt;
+    Integer positionAtGeneration;   // standings snapshot
+    Integer pointsAtGeneration;
+    // equals/hashCode on language + competition + perspective only — mirrors OneLiner ignoring `text`
+}
+```
+
+`TeamData` gains `Set<TeamOneLiner> oneLiners` with the same null-safe getter / `addOneLiner` / `replaceOneLiner`
+trio `Fixture` has. **Add `@Builder.Default`** — `TeamData` is `@Builder`, and without it the set is null and
+`addOneLiner` NPEs, which is bug #9 verbatim.
+
+Regeneration uses `replaceOneLiner`, not `addOneLiner`: `add` on a `Set` whose equality ignores `text` is a no-op
+when an entry already exists, so a stale sentence would never be overwritten.
+
+---
+
+## 6. Prompt design
+
+### 6.1 New builder
+`system/utils/prompts/TeamOneLinerPromptBuilder implements PromptBuilder` — implement the seven methods, never a
+new template string (per `CLAUDE.md`).
+
+- **role** — per perspective, per the table in §3.
+- **task** — "Generate a casual comment that shows you follow this team closely at the moment."
+- **style** — `Language.getDescription()` + the perspective's tone.
+- **structure** — "1-2 sentences, under 20 words each, no line breaks, no emojis." (matches the other two.)
+- **constraints** — "Use only the data provided. No predictions, no invented transfers, injuries, quotes or
+  statistics. Do not mention anything you know about this club that is not listed below." Stale training-data
+  knowledge is the dominant failure mode here — the model has opinions about every big club that may be years
+  out of date — so this needs to be firmer than in the fixture builders. Plus the `RIVAL_FAN` clause from §3.
+- **examples** — 3–4 per perspective, in the house voice. Pick them to demonstrate the *edge*: a good run seen by
+  a rival, a bad run seen by a fan.
+- **data** — competition, position, points, W/D/L, home/away split; recent form list; next fixture with opponent
+  and venue side; coach; and 2–3 notable players with their goals/assists/league scorer rank/injury status.
+
+### 6.2 Factory
+Add an overload to `PromptBuilderFactory` (it already injects `TeamDataService` and `FootballApiService`), taking
+a small context object rather than seven positional arguments:
+
+```java
+public PromptBuilder create(TeamPromptContext context, Language language, Perspective perspective)
+// TeamPromptContext: TeamData team, Competition competition, List<Fixture> recentForm,
+//                    Fixture nextFixture, List<PlayerData> notablePlayers
+```
+
+Keeping one factory matches the `CLAUDE.md` pointer that prompt variants are added there.
+
+### 6.3 Competition selection
+`TeamData.standings` may hold several entries. Rule: use the request's `competition` when given and present;
+otherwise the team's domestic league — the single entry that is neither `CHAMPIONS_LEAGUE` nor `WORLD_CUP`; if
+still ambiguous, the one with the most `playedMatches`. Return the choice as `facts.primaryCompetition`.
+
+### 6.4 Notable players — 10 for the card, 0–3 for the prompt
+
+One list, not two. `facts.notablePlayers` returns **10 players**, and the prompt draws from those same 10. There
+is no positional XI: we hold no lineup data outside a specific fixture, so a 1/4/4/2 list would have implied a
+starting eleven we can't actually know. "Notable players" claims only what it can support.
+
+**Ranking the 10.** `player_minutes` isn't in the `get_teams` response (§4.3), so regularity comes from
+`player_match_played` and the supporting stats do the rest:
+
+1. Drop anyone whose `matchesPlayed` is blank — an unused squad member is not notable. Note this is a blank
+   string, not a zero (§4.3), and roughly a third of a listed squad is blank.
+2. Score the rest on appearances relative to the squad's maximum, plus goal contribution
+   (`goals * 2 + assists`), plus a volume term. For the volume term use `passes` (raw involvement) and
+   `duelsWon`, **not** `passesAccuracy` as a percentage — it is a count of completed passes, so it only means
+   anything as `passesAccuracy / passes` (§4.3). `shotsTotal` works as given. This term is what lets a
+   defensive midfielder or a centre-back place at all; without it the list is forwards and nothing else.
+3. **Reserve one slot for the first-choice goalkeeper** — the `Goalkeepers` entry with the most appearances,
+   included unconditionally, ranked or not. A keeper scores near zero on every attacking signal and would never
+   survive the ranking on merit, but "who's in goal" is basic knowledge a fan is expected to have, and the
+   backup keeper appearing instead of the first choice would read as a mistake. If no keeper has appearances
+   (early season, or a thin squad listing), take the first `Goalkeepers` entry rather than leaving the slot
+   empty. The remaining 9 come from the ranking.
+
+   Better than expected: the live response gives keepers **`player_saves`, `player_inside_box_saves` and
+   `player_goals_conceded`**, so the reserved slot can carry a real fact — "21 saves in nine games" — rather than
+   just a name. Store those three on `PlayerData` and let the prompt use them when the keeper qualifies.
+4. Guard the rest loosely: at most 4 from any one `player_type` bucket. Enough to stop the list degenerating
+   into nine attackers, without pretending to be a formation.
+5. `injured == true` does not remove a player — an injured regular is *more* notable, not less. Flag it in the
+   payload and let the FE render it.
+
+**The prompt gets 0–3 of those 10, and only when justified.** A name with no story attached makes the sentence
+worse, not better, so a player reaches the prompt only if:
+
+1. **Injured regular** — `injured == true` with appearances at or above the squad median. The most
+   conversation-worthy fact a squad holds, and the one a casual fan won't know.
+2. **League scorer rank** — a non-null `leagueScorerRank` from `get_topscorers` (§4.4), best rank first.
+3. **Standout contribution** — `goals * 2 + assists` clearly ahead of the squad, not merely top of it.
+   Concretely: at least 1.5× the second-best player's score, or better than roughly one goal contribution every
+   two appearances. A team whose leading scorer has three in twenty is not carrying anyone, and saying so would
+   be exactly the empty stat that `constraints()` exists to suppress.
+
+Take them in that order, stop at 3, and pass **zero** when nothing qualifies — the builder must handle an empty
+list and fall back to a table-and-form sentence.
+
+### 6.5 WORLD_CUP-only teams — rejected
+Decided: if the resolved primary competition is `WORLD_CUP`, or the team holds no standings outside `WORLD_CUP`,
+throw a `SmallTalkException` (400) with a message constant in `system/messages/Messages`. League position is
+meaningless for a national side, and the alternative is a confidently wrong sentence. A club team that also has a
+`WORLD_CUP` entry is unaffected — §6.3 skips it when choosing the primary competition.
+
+---
+
+## 7. Bug #3 — fixed with `@JsonProperty`
+
+Agreed, and it is a prerequisite rather than a nicety: the new `TeamDataDto` fields land in the same hand-written
+DTO where getter names already drift from field names, so the same trap is one typo away.
+
+One detail that decides whether the fix works: the apifootball mapper is the `@Qualifier("apiClient")` one with
+`SNAKE_CASE` naming, and **Jackson does not apply a naming strategy to an explicitly named property**. So the
+annotation must carry the wire name verbatim, not the camelCase one:
+
+```java
+@JsonProperty("match_hometeam_name")   // correct
+private String matchHometeamName;
+
+@JsonProperty("matchHometeamName")     // wrong — would silently stay null, same as today
+private String matchHometeamName;
+```
+
+Apply to `MatchDto.matchHometeamName`, `matchAwayteamName`, `lineup`, and through `MatchLineup.home`/`away` and
+`LineUp.coach`, which have the same shape at every level.
+
+Consequence worth expecting: `TeamDataService.enrichTeamsData` currently *backfills* names and coaches that never
+deserialize. Once binding works it becomes a genuine fallback, and `FixtureAssembler.getCoach()` stops being dead
+code. `FixtureAssemblerTest.UnboundFields` pins the broken behaviour deliberately — those four cases must be
+rewritten to assert the correct behaviour, per the `CLAUDE.md` note about pinning tests. Update `bugs.md` to mark
+#3 fixed.
+
+---
+
+## 8. Refactors this feature should carry (small, in scope)
+
+1. **Language description** — `switch (language) { HEBREW -> "Hebrew"; ... }` is copy-pasted in both existing
+   builders and a third copy is imminent. Move it onto the `Language` enum as `getDescription()`.
+2. **Standing / recent-form phrasing** — extract `phraseStanding` and `phraseRecentForm` from
+   `UpcomingFixtureOneLinerPromptBuilder` into a package-private `PromptPhrasing` helper and call from both.
+
+Both are pure moves covered by `PromptBuilderTest`, so they're cheap and stop the duplication from tripling.
+
+---
+
+## 9. Service flow
+
+New `TeamOneLinersService` — a separate service from `OneLinersService`, since the caching rule differs entirely.
+
+```
+getTeamSmallTalk(teamId, competition, lang, perspective)
+  ├─ TeamData team   = teamDataService.getTeamById(teamId)      // → NotFoundException, see §10
+  ├─ Competition target = resolveCompetition(team, competition) // rejects WORLD_CUP-only (§6.5)
+  ├─ List<Fixture> form = fixtureService.getRecentFinishedForTeam(teamId, 5)
+  ├─ Fixture next       = fixtureService.getNextFixtureForTeam(teamId)
+  ├─ List<PlayerData> notable = playerDataService.getNotablePlayers(teamId, 5)   // §6.4
+  ├─ TeamOneLiner cached = team.findOneLiner(lang, target, perspective)
+  │     ├─ fresh (§5)? → use it
+  │     └─ stale?      → aiService.generate(factory.create(context, lang, perspective).buildPrompt()),
+  │                      team.replaceOneLiner(new), teamDataService.save(team)
+  └─ return new TeamSmallTalk(oneLiner, TeamFacts.from(team, target, form, next, notable))
+```
+
+`TeamFacts` and `TeamSmallTalk` live in `models/` as plain response shapes, serialised by the `@Primary`
+`LOWER_CAMEL_CASE` mapper. Do **not** return `TeamData` directly — the cached one-liner set would leak into the
+response body.
+
+---
+
+## 10. Files touched
+
+**New**
+```
+enums/Perspective.java
+domain/PlayerData.java
+repositories/PlayerDataRepository.java
+services/PlayerDataService.java
+services/TeamOneLinersService.java
+services/jobs/TeamsJob.java
+models/TeamOneLiner.java
+models/TeamFacts.java
+models/TeamSmallTalk.java
+models/Venue.java
+models/dto/PlayerItem.java                        (the players array inside get_teams)
+models/dto/PlayerDto.java                         DONE — get_players lookup, for the player one-liner
+models/dto/VenueDto.java                          (venue IS a nested object — see appendix)
+system/utils/mappers/PlayerDataMapper.java
+system/utils/prompts/TeamOneLinerPromptBuilder.java
+system/utils/prompts/TeamPromptContext.java
+system/utils/prompts/PromptPhrasing.java
+```
+
+**Modified**
+```
+controllers/OneLinerController.java              + GET /one-liners/teams/{teamId}
+domain/TeamData.java                             + venue, founded, Set<TeamOneLiner> (with @Builder.Default)
+models/dto/TeamDataDto.java                      + players, venue (nested), team_founded, team_country
+models/dto/MatchDto.java, MatchLineup.java, LineUp.java   @JsonProperty fix for bug #3
+system/utils/mappers/TeamDataUpdateMapper.java   + venue, founded
+services/TeamDataService.java                    + save(TeamData), write PlayerData in saveCompetitionTeams
+services/FootballApiService.java                 + getTopScorers(Competition); getPlayerById/getPlayersByName DONE
+repositories/FixtureRepository.java              + the derived by-team queries (§4.2)
+services/FixtureService.java                     + getRecentFinishedForTeam / getNextFixtureForTeam
+system/utils/prompts/PromptBuilderFactory.java   + team overload
+system/utils/prompts/*OneLinerPromptBuilder.java + Language.getDescription() / PromptPhrasing
+enums/Language.java                              + getDescription()
+system/messages/Messages.java                    + unknown team, world-cup-only team
+bugs.md                                          mark #3 fixed
+```
+
+No change to `JwtAuthFilter` and no new properties — so `src/test/resources/application.properties` is untouched
+too.
+
+---
+
+## 11. Tests — reference index
+
+**This is not a phase of work.** Every test below is assigned to the step that creates the code it covers, in the
+build order at the top of this document; write it there. This section exists so you can look up what covers a
+given component, and so nothing is dropped when a phase is split differently.
+
+Conventions from `CLAUDE.md`: plain JUnit/Mockito wherever a Spring context isn't needed.
+
+- *(phase 3, step 5)* `TeamOneLinerPromptBuilderTest` — one case per `Perspective` asserting the role/style text differs; assert the
+  data block carries position, points, form, next fixture and notable players; assert a missing standing and an
+  empty form list degrade to readable lines rather than NPEs.
+- *(phase 3, step 7)* `TeamOneLinersServiceTest` (Mockito) — cache hit when nothing changed; regeneration after a newer finished
+  fixture; regeneration after a standings move with no new fixture; independent cache entries per perspective and
+  per language; `replaceOneLiner` actually overwrites (the `add`-is-a-no-op trap in §5).
+- *(phase 2, step 3)* `PlayerDataMapperTest` — string→int parsing including blanks and non-numeric values; `player_injured`
+  truthiness; empty `players` array (normal for national teams, mirroring the existing empty-coaches case).
+- *(phase 2, step 4)* Notable-player ranking test — 10 returned; the first-choice goalkeeper is always among them, including when
+  no keeper has appearances; zero-appearance outfielders excluded; the bucket cap holds; a high-passing
+  midfielder places ahead of a fringe forward.
+- *(phase 3, step 7)* Prompt-selection test — injured regular beats a higher scorer; league scorer rank beats raw goals; a
+  merely-top-of-a-poor-squad scorer qualifies for nothing, and the builder handles the resulting empty list.
+- *(phase 1 step 1 for `MatchDto`, phase 2 step 3 for `TeamDataDto`)* binding tests via `JsonFixtures.parse` (the production `apiClientObjectMapper`, so
+  the `SNAKE_CASE` + explicit-`@JsonProperty` interaction from §7 is genuinely exercised).
+- *(phase 1, step 1)* `FixtureAssemblerTest.UnboundFields` — rewrite the four pinning cases to assert correct binding.
+- *(phase 2, step 4)* `FootballApiServiceTest` — `getTopScorers` against `MockRestServiceServer.bindTo(RestClient.Builder)`; use
+  `ExpectedCount` if it iterates `Competition.values()`.
+- *(phase 3, step 7)* `OneLinerControllerTest` — extend with the new route; `@WebMvcTest` with `excludeFilters` for `JwtAuthFilter`,
+  as the existing controller tests do.
+- *(phase 3, step 7)* `JwtAuthFilterTest` — **no change needed**, but add one assertion that `GET /one-liners/teams/{id}` is public,
+  so a future filter edit can't silently gate it.
+
+The derived queries in §4.2 have no integration coverage — there are no MongoDB tests in the project — and a bad
+nested-path resolution returns empty rather than failing. Run them once against a real database before merging.
+
+Separately: `TeamDataService.getTeamById` throws `IllegalStateException` for an unknown id, which
+`ControllerAdvice` does not handle → bare 500. `teamId` is now user-supplied, making that reachable from outside
+for the first time, so it must become a `NotFoundException` (404) as part of this work.
+
+---
+
+## Decisions taken (previously open)
+
+1. **`RIVAL_FAN` against a mid-table side** — accept blander output. No fallback to `NEUTRAL`; the mode stays the
+   mode, and a needling sentence about a team with nothing wrong with it is simply a mild one. This keeps the
+   perspective honest rather than silently swapping voices behind the user's back, and it removes a threshold
+   nobody would be able to tune.
+2. **API budget** — hundreds of calls a day available. The daily `TeamsJob` (7 `get_teams`) plus `get_topscorers`
+   (7) on the standings cadence is comfortably inside that alongside `FixturesJob` and `StandingsJob`.
+3. **Player id stability** — assumed stable, consistent with fixture and team ids in this API. `PlayerData` is
+   keyed on `player_id` with no composite fallback.
+4. **Squad size** — one list of 10 notable players for the card, one slot of which is always the first-choice
+   goalkeeper; 0–3 of those reach the prompt, and only when they qualify (§6.4). No positional XI, so the card
+   makes no lineup claim it can't support.
+5. **`player_minutes`** — confirmed absent from `get_teams`. Ranking uses `player_match_played` with
+   `player_shots_total` and `player_passes_accuracy` as supporting signals, which also lets non-forwards place.
+6. **`get_news`** — deferred, not rejected. Something to come back to once the feature is live and we can see
+   whether the table-and-form sentences are carrying it on their own. When we do: headlines only, 3 most recent,
+   last 7 days, framed to the model as untrusted third-party text.
+
+## Still open
+
+Nothing blocking. The one thing to watch during step 3 is that the `players` array in `get_teams` is richer than
+the published documentation — bind it from a real dump, and if a field turns out to be a percentage string, an
+empty string, or absent for some leagues, the mapper has to tolerate it rather than throw (§4.6).
+
+
+---
+
+## Appendix — live `get_teams` response (Premier League, fetched 2026-09-09)
+
+Kept verbatim because the published documentation is wrong about this endpoint in both directions: it lists
+`player_minutes`, which is absent, and omits roughly twenty fields that are present. Write the DTOs from this,
+not from the docs page.
+
+`GET https://apiv3.apifootball.com/?action=get_teams&league_id=152&APIkey=...` → a 710KB array, one object per
+team. Top-level keys: `team_key`, `team_name`, `team_country`, `team_founded`, `team_badge`, `venue`, `players`,
+`coaches`.
+
+```jsonc
+{
+  "team_key": "80",
+  "team_name": "Manchester City",
+  "team_country": "England",
+  "team_founded": "1880",
+  "team_badge": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg",
+  "venue": {
+    "venue_name": "Etihad Stadium",
+    "venue_address": "Rowsley Street",
+    "venue_city": "Manchester",
+    "venue_capacity": "55097",
+    "venue_surface": "grass"
+  },
+  "coaches": [ { "coach_name": "Enzo Maresca", "coach_country": "", "coach_age": "" } ],
+  "players": [ /* 24 entries; 15 have appearances, 9 are blank across every stat */ ]
+}
+```
+
+### An outfield player with appearances
+
+```json
+{
+  "player_key": 659972248, "player_id": "659972248",
+  "player_image": "https://apiv3.apifootball.com/badges/players/68451_e-haaland.jpg",
+  "player_name": "Erling Haaland", "player_complete_name": "Erling Haaland",
+  "player_number": "9", "player_country": "", "player_type": "Forwards",
+  "player_age": "26", "player_birthdate": "2000-07-21", "player_is_captain": "1",
+  "player_match_played": "10", "player_goals": "8", "player_assists": "0",
+  "player_yellow_cards": "0", "player_red_cards": "0", "player_injured": "No",
+  "player_substitute_out": "", "player_substitutes_on_bench": "",
+  "player_shots_total": "33", "player_goals_conceded": "0",
+  "player_fouls_committed": "5", "player_tackles": "1", "player_blocks": "1",
+  "player_crosses_total": "", "player_interceptions": "", "player_clearances": "3",
+  "player_dispossesed": "", "player_saves": "", "player_inside_box_saves": "",
+  "player_duels_total": "29", "player_duels_won": "17",
+  "player_dribble_attempts": "1", "player_dribble_succ": "1",
+  "player_pen_comm": "", "player_pen_won": "", "player_pen_scored": "1", "player_pen_missed": "0",
+  "player_passes": "86", "player_passes_accuracy": "54", "player_key_passes": "4",
+  "player_woordworks": "", "player_rating": "7.30"
+}
+```
+
+### A first-choice goalkeeper — note `player_saves` and `player_goals_conceded`
+
+```json
+{
+  "player_key": 1425703506, "player_id": "1425703506",
+  "player_name": "Gianluigi Donnarumma", "player_number": "1", "player_type": "Goalkeepers",
+  "player_age": "27", "player_birthdate": "1999-02-25", "player_is_captain": "0",
+  "player_match_played": "9", "player_goals": "", "player_assists": "0",
+  "player_yellow_cards": "2", "player_red_cards": "0", "player_injured": "No",
+  "player_goals_conceded": "12", "player_saves": "21", "player_inside_box_saves": "17",
+  "player_clearances": "7", "player_tackles": "1", "player_fouls_committed": "1",
+  "player_duels_total": "7", "player_duels_won": "5",
+  "player_pen_scored": "0", "player_pen_missed": "0",
+  "player_passes": "200", "player_passes_accuracy": "164", "player_key_passes": "1",
+  "player_rating": "7.12"
+}
+```
+
+### An unused squad player — every stat is `""`
+
+```json
+{
+  "player_key": 3907863339, "player_id": "3907863339",
+  "player_name": "Geronimo Rulli", "player_number": "28", "player_type": "Goalkeepers",
+  "player_age": "34", "player_birthdate": "1992-05-20", "player_injured": "No",
+  "player_match_played": "", "player_goals": "", "player_assists": "",
+  "player_yellow_cards": "", "player_red_cards": "", "player_is_captain": "",
+  "player_saves": "", "player_goals_conceded": "", "player_passes": "",
+  "player_passes_accuracy": "", "player_rating": ""
+}
+```
+
+### Full `player_*` key inventory (union across every Premier League team)
+
+```
+player_age                player_dribble_succ        player_key_passes         player_red_cards
+player_assists            player_duels_total         player_match_played       player_saves
+player_birthdate          player_duels_won           player_name               player_shots_total
+player_blocks             player_fouls_committed     player_number             player_substitute_out
+player_clearances         player_goals               player_passes             player_substitutes_on_bench
+player_complete_name      player_goals_conceded      player_passes_accuracy    player_tackles
+player_country            player_id                  player_pen_comm           player_type
+player_crosses_total      player_image               player_pen_missed         player_woordworks
+player_dispossesed        player_injured             player_pen_scored         player_yellow_cards
+player_dribble_attempts   player_inside_box_saves    player_pen_won
+player_interceptions      player_is_captain          player_rating
+player_key
+```
+
+Two of those are misspelled upstream — `player_dispossesed` and `player_woordworks` — so bind them verbatim and
+do not "correct" them.
+
+### Traps this response reveals
+
+| Observation | Consequence |
+|---|---|
+| `player_minutes` absent despite being documented | Ranking uses `player_match_played` (§6.4) |
+| Stats are `""` for unused players, not `"0"` | Filter on blank, and parse blank as `null`; `Integer`, never `int` |
+| `player_passes_accuracy` is a count (454 of 478), not a % | Use as a ratio against `player_passes`, or not at all |
+| `player_key` is a JSON **number**, `player_id` a string | Bind `player_key` as `Long` or ignore it; key `PlayerData` on `player_id` |
+| `venue` is nested; `coaches` is an array | Two DTO types, not flat fields |
+| `player_country` blank even for internationals | Never assume a field is populated |
+| `player_injured` is `"Yes"` / `"No"` | Parse to boolean explicitly |
+| Numeric-looking values are all strings | Every parse goes through a tolerant helper (§4.6) |
