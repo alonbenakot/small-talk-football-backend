@@ -10,6 +10,8 @@ public class Messages {
     public static final String NO_ARTICLE_FOUND = "No article was found.";
     public static final String ARTICLE_ALREADY_PUBLISHED = "This article is already published. Everything is ok, just no need to publish it again.";
     public static final String ARTICLE_IS_NOT_PUBLISHED = "This article was not published to begin with.";
+    public static final String NO_TEAM_FOUND = "No team was found for id: %s";
+    public static final String TEAM_HAS_NO_LEAGUE_STANDING = "This team has no league standing, so there is nothing current to say about it.";
     public static final String ARTICLE_TITLE_NOT_UNIQUE = "An article with the same title already exists. If it is not the same as your article, consider changing the title";
 
 }

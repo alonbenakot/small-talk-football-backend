@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -27,13 +29,16 @@ public class OneLinersService {
     public OneLiner getOneLiner(String fixtureId, TeamType teamType, Language lang) throws SmallTalkException {
         Fixture fixture = fixtureService.getFixture(fixtureId);
 
-        return fixture.getOneLiners().stream()
+        // Not orElseGet: generation can now fail with a checked SmallTalkException, which a
+        // supplier cannot throw.
+        Optional<OneLiner> cached = fixture.getOneLiners().stream()
                 .filter(oneLiner -> isOneLinerExists(teamType, lang, oneLiner, fixture))
-                .findAny()
-                .orElseGet(() -> generateOneLiner(teamType, lang, fixture));
+                .findAny();
+
+        return cached.isPresent() ? cached.get() : generateOneLiner(teamType, lang, fixture);
     }
 
-    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture) {
+    private OneLiner generateOneLiner(TeamType teamType, Language lang, Fixture fixture) throws SmallTalkException {
         PromptBuilder promptBuilder = promptBuilderFactory.create(fixture, teamType, lang);
         String oneLinerText = aiService.generate(promptBuilder.buildPrompt());
 

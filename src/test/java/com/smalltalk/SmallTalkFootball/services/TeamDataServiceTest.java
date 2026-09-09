@@ -12,6 +12,7 @@ import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.models.dto.TopScorerItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.testsupport.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -231,7 +232,7 @@ class TeamDataServiceTest {
     class Lookup {
 
         @Test
-        void returnsAStoredTeam() {
+        void returnsAStoredTeam() throws Exception {
             TeamData team = TestFixtures.teamData("2621", "Liverpool", "Arne Slot");
             when(repository.findById("2621")).thenReturn(Optional.of(team));
 
@@ -242,8 +243,10 @@ class TeamDataServiceTest {
         void rejectsAnUnknownTeamId() {
             when(repository.findById("nope")).thenReturn(Optional.empty());
 
+            // A 404, not a 500: the team id is user-supplied through the team one-liner route,
+            // and ControllerAdvice only maps NotFoundException to a not-found response.
             assertThatThrownBy(() -> service.getTeamById("nope"))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(NotFoundException.class)
                     .hasMessageContaining("nope");
         }
     }

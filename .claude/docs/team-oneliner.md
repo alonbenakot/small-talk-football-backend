@@ -77,7 +77,7 @@ tracked competition, with the ranking returning 10 players including the first-c
 ✅ Suite green at 318 tests (+21). The live-key check is still owed — see the Phase 2 handoff notes at the end of
 this document for what to verify.
 
-### Phase 3 — The feature (steps 5–7)
+### Phase 3 — The feature (steps 5–7) — ✅ DONE (2026-09-09)
 
 The subtle phase. The traps here are ones tests catch only if you write them deliberately.
 
@@ -105,6 +105,9 @@ The subtle phase. The traps here are ones tests catch only if you write them del
 
 **Done when:** the suite is green and the endpoint returns a cached one-liner on the second call, a regenerated
 one after a new finished fixture or a standings move, and a 400 for a WORLD_CUP-only team.
+✅ Suite green at 389 tests (+71). The caching, regeneration and rejection behaviour is pinned in
+`TeamOneLinersServiceTest`; the live-database check of the two derived queries is still owed, along with Phase 2's
+live-key check. See the Phase 3 handoff notes at the end of this document.
 
 ### Phase 4 — Operations and tuning (steps 8–9)
 
@@ -829,7 +832,8 @@ do not "correct" them.
 
 ## Phase 1 handoff notes (for the Phase 2 session)
 
-Phase 1 is complete and committed to the working tree (not yet committed to git). Summary of what changed and
+Phase 1 is complete (committed as `ce0ff5f` / `17bff41`; the "not yet committed" note originally here was
+written before the commit). Summary of what changed and
 what the next session should know.
 
 ### Step 1 — bug #3 fixed
@@ -999,3 +1003,117 @@ on the `Set`; `TeamOneLinerPromptBuilder implements PromptBuilder`; the `PromptB
 Read §3, §5, §6, and §8 (the `PromptPhrasing` helper Phase 1 extracted — `phraseStanding` now takes a
 `Competition` directly, so it works without a `Fixture`). `PlayerDataService.getNotablePlayers` is ready for the
 data block.
+
+
+---
+
+## Phase 3 handoff notes (for the Phase 4 session)
+
+Phase 3 is complete. `./mvnw test` is green at **389 tests** (was 318; +71). Phases 1 and 2 are committed
+(`17bff41`, `90d55a0` on `feature/team-oneliner`); Phase 3's changes are in the working tree, uncommitted.
+Summary of what changed and what Phase 4 needs to know.
+
+### Step 5 — perspective, the cache, the builder, the factory
+
+- `enums/Perspective` — `FAN`, `RIVAL_FAN`, `NEUTRAL`, exactly as §3.
+- `models/TeamOneLiner` — `@Getter @Builder @AllArgsConstructor`, equality on language + competition +
+  perspective only. `positionAtGeneration` / `pointsAtGeneration` carry `@JsonIgnore`: they are a caching detail,
+  and §2's documented response shape does not include them. `OneLinerControllerTest` pins that they stay off the
+  wire.
+- `domain/TeamData` gained `Set<TeamOneLiner> oneLiners` **with `@Builder.Default`** (bug #9's shape, avoided
+  here) plus the null-safe `getOneLiners`, `addOneLiner`, `replaceOneLiner` trio and a `findOneLiner(language,
+  competition, perspective)` lookup. The set is `@JsonIgnore`d as a second guard against it leaking through any
+  endpoint that returns `TeamData` directly. Note **bug #9 itself is still open** — `Fixture.oneLiners` still has
+  no `@Builder.Default`; only the new field is safe.
+- `system/utils/prompts/TeamPromptContext` — a `record` (team, competition, recentForm, nextFixture,
+  notablePlayers).
+- `system/utils/prompts/TeamOneLinerPromptBuilder` — the seven `PromptBuilder` methods, no new template string.
+  Role, style and examples switch on the perspective; the data block is identical across all three, because a
+  perspective is a voice and not a different set of facts. It reuses `PromptPhrasing.phraseStanding` and
+  `phraseRecentForm` from Phase 1.
+- `PromptBuilderFactory.create(TeamPromptContext, Language, Perspective)` — an overload, per §6.2. **Watch out:**
+  overloading `create` made `create(any(), any(), any())` ambiguous in Mockito stubs, which broke the existing
+  `OneLinersServiceTest`. The fix was to type the first matcher (`any(Fixture.class)` /
+  `any(TeamPromptContext.class)`). Any new stub of this factory has to do the same.
+
+### Step 6 — the by-team fixture queries
+
+- `FixtureRepository` gained `findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(...)` and the
+  `FinishedFalse` mirror, both taking a `Sort`.
+- `FixtureService.getRecentFinishedForTeam(teamId, limit)` sorts descending and trims to the limit, and logs a
+  warning when fewer than two finished fixtures come back (the `MAX_MATCH_DAYS` degradation §4.2 warns about).
+  `getNextFixtureForTeam(teamId)` returns an `Optional<Fixture>`, ascending, first result.
+- **Still owed, as §4.2 and §11 both say:** these two derived names have no integration coverage. A
+  mis-resolved nested path (`homeTeam.id`) returns an empty list rather than failing, so
+  `FixtureServiceTest.ByTeamLookups` can only pin the service's half — same id on both sides of the `Or` and the
+  sort direction. Run them once against a real database during the step-9 smoke.
+
+### Step 7 — the service, the response shapes, the route
+
+- `models/TeamFacts` — a response type with a static `from(team, competition, recentForm, nextFixture,
+  notablePlayers)`, plus nested `FormResult` / `NextFixture` / `Result`. Home-or-away is decided by comparing
+  **team ids**, not names, since the id is what the query selected on. `models/TeamSmallTalk` pairs it with the
+  one-liner. `TeamData` is deliberately never returned directly (§9).
+- `services/TeamOneLinersService` — the flow in §9. Freshness is the two-part rule from §5 (played since, or the
+  standings snapshot moved); a cached entry with a null `generatedAt` is always treated as stale.
+  `resolveCompetition` implements §6.3 and throws `SmallTalkException(Messages.TEAM_HAS_NO_LEAGUE_STANDING)` for
+  a team with no standing outside the World Cup (§6.5). Regeneration uses `replaceOneLiner` then
+  `teamDataService.save(team)`.
+- `system/utils/prompts/PromptPlayerSelection` — package-private, narrows the ten notable players to the 0–3 that
+  earn a mention (injured regular → league scorer rank → clear standout, in that order). The builder calls it, so
+  the card gets all ten and the sentence gets the shortlist. "Nobody qualifies" is a normal outcome and the data
+  block then tells the model to talk about the table and the form instead. **The thresholds
+  (`STANDOUT_MULTIPLE = 1.5`, `STANDOUT_RATE_PER_APPEARANCE = 0.5`) are a starting point** — if step 9 shows the
+  sentences naming nobody too often, or naming somebody unconvincing, this is the file to tune.
+- `controllers/OneLinerController` gained `GET /one-liners/teams/{teamId}` with `lang` required, `perspective`
+  defaulting to `NEUTRAL` and `competition` optional. **No `JwtAuthFilter` change was needed** and none should be
+  made: the route is public because it lives under `/one-liners`, and `JwtAuthFilterTest.Open` now pins that.
+- `TeamDataService.getTeamById` now throws `NotFoundException` (404) instead of `IllegalStateException`. That is
+  a checked exception, which rippled: `PromptBuilderFactory.create(Fixture, …)` now declares
+  `throws SmallTalkException`, and `OneLinersService.getOneLiner` had to stop using `orElseGet` (a supplier
+  cannot throw a checked exception) — it now uses an explicit `Optional` and a ternary. Behaviour is unchanged.
+- `Messages` gained `NO_TEAM_FOUND` (a `%s` format string, takes the id) and `TEAM_HAS_NO_LEAGUE_STANDING`.
+
+### Tests added (71)
+
+- `system/utils/prompts/TeamOneLinerPromptBuilderTest` (21) — a nested class per concern: the three voices really
+  differ, only `RIVAL_FAN` carries the "mock only what is in the data" clause, every perspective forbids reaching
+  for training data, a null perspective falls back to `NEUTRAL`; the data block carries position, points, the
+  home/away split, form, the next fixture with its venue side, the coach and the notable player; and the thin
+  cases (no standing, empty form, no next fixture, empty *and* null notable lists, a team with no name).
+- `system/utils/prompts/PromptPlayerSelectionTest` (9) — an injured regular beats a higher scorer, an injured
+  fringe player is not notable, a league rank beats raw goals, better ranks come first, a merely-top-of-a-poor-
+  squad scorer qualifies for nothing, a clear standout does, never more than three, never the same player twice.
+- `services/TeamOneLinersServiceTest` (17) — cache hit when nothing changed, regeneration after a new finished
+  fixture, after a position move and after a points move, a null timestamp always regenerates, `replaceOneLiner`
+  actually overwrites (the §5 trap), the snapshot is stored, independent entries per perspective and language;
+  plus the whole of §6.3/§6.5 competition resolution and the NotFoundException propagation.
+- `models/TeamOneLinerTest` (6) and `domain/TeamDataTest` (6) — the equality-ignores-text contract and the
+  `@Builder.Default` / add-vs-replace behaviour it forces.
+- `controllers/OneLinerControllerTest` (+8, new `TeamRoute` nested class) — the new route's happy path, the
+  snapshot not leaking, the `NEUTRAL` default, the competition passthrough, required `lang`, an unknown
+  perspective, a 400 for a WORLD_CUP-only team and a 404 for an unknown id.
+- `services/FixtureServiceTest` (+4, new `ByTeamLookups` nested class) — the arguments and sort of both derived
+  queries, the limit, and an absent next fixture.
+- `security/JwtAuthFilterTest` (+1 case) — `GET /one-liners/teams/2611` is public.
+- `services/TeamDataServiceTest` — the `Lookup` rejection case was updated from `IllegalStateException` to
+  `NotFoundException`; `testsupport/TestFixtures` gained `teamDataWithStanding(...)` and `standing(...)`.
+
+### Where Phase 4 starts
+
+Step 8: `services/jobs/TeamsJob` on a daily `Asia/Jerusalem` cron calling `teamDataService.saveCompetitionTeams()`
+(§4.7), alongside the existing `FixturesJob` and `StandingsJob`. No tests beyond asserting it delegates.
+
+Step 9 is the one that makes the feature good, and it is where three owed verifications should be done in the
+same sitting against a real key and a real Mongo:
+
+1. **Phase 2's live-key checklist** (above) — `PlayerData` populated, `leagueScorerRank` actually landing, venue
+   and founded present, a national team's empty `players` array not erroring.
+2. **The two derived queries from step 6** — call `GET /one-liners/teams/{id}` and confirm `recentForm` and
+   `nextFixture` are non-empty for a team that has obviously played. An empty list here means the nested path
+   `homeTeam.id` did not resolve, not that the team has no fixtures.
+3. **The prompt itself.** Read real output for all three perspectives and tune `examples()` and `constraints()`
+   in `TeamOneLinerPromptBuilder`, and the thresholds in `PromptPlayerSelection` if the wrong players are being
+   named. `TeamOneLinerPromptBuilderTest` asserts on specific strings from `role()`, `style()` and the data
+   block's labels — if a tuning change breaks it, decide deliberately which of the two was wrong, as the phase
+   description says.

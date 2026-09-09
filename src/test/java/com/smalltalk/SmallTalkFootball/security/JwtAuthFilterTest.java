@@ -90,6 +90,9 @@ class JwtAuthFilterTest {
                 "GET,/fixtures",
                 "GET,/fixtures/abc",
                 "GET,/one-liners/abc",
+                // The team small talk lives under /one-liners on purpose: /teams is admin-only
+                // in its entirety, so this pins that the route stays public.
+                "GET,/one-liners/teams/2611",
                 "GET,/small-infos",
                 "GET,/small-infos/categories",
                 "GET,/articles/published",

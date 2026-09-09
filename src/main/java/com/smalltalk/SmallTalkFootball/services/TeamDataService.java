@@ -12,6 +12,8 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -142,9 +144,14 @@ public class TeamDataService {
         return repository.findAll();
     }
 
-    public TeamData getTeamById(String id) {
+    /**
+     * Throws a {@link NotFoundException} (404) rather than an IllegalStateException: the team
+     * id became user-supplied with the team one-liner route, so an unknown one has to reach
+     * the ControllerAdvice as a 404 instead of a bare 500.
+     */
+    public TeamData getTeamById(String id) throws NotFoundException {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalStateException("TeamData not found for id: " + id));
+                .orElseThrow(() -> new NotFoundException(Messages.NO_TEAM_FOUND.formatted(id)));
     }
 
     public Fixture enrichTeamsData(Fixture fixture, List<TeamData> teamDataList) {
