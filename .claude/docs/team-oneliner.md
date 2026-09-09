@@ -51,7 +51,7 @@ working.
 **Done when:** `./mvnw test` is green, no test was deleted, and `FixtureAssembler` yields non-null team names and
 coaches from a payload that carries them. ✅ All 297 tests green; see the Phase 1 handoff notes at the end of this document.
 
-### Phase 2 — Data layer (steps 3–4)
+### Phase 2 — Data layer (steps 3–4) — ✅ DONE (2026-09-09)
 
 No API exploration needed: a live `get_teams` response is in the appendix with the full field inventory and a
 traps table. Write the DTOs from that, **not** from the published apifootball documentation, which is wrong about
@@ -74,6 +74,8 @@ this endpoint in both directions.
 
 **Done when:** the suite is green and a real `POST /teams` against a live key populates `PlayerData` for every
 tracked competition, with the ranking returning 10 players including the first-choice keeper.
+✅ Suite green at 318 tests (+21). The live-key check is still owed — see the Phase 2 handoff notes at the end of
+this document for what to verify.
 
 ### Phase 3 — The feature (steps 5–7)
 
@@ -880,3 +882,120 @@ Step 3: `TeamDataDto` gains `players` (array) and a nested `venue` object; add `
 the `PlayerData` document + repository + mapper; write players in `saveCompetitionTeams`. Read §4.5, §4.6 and the
 appendix (the live `get_teams` response and its traps table) — **not** the published apifootball docs. Apply
 `@JsonProperty` to every new `TeamDataDto` field per the rule above.
+
+
+---
+
+## Phase 2 handoff notes (for the Phase 3 session)
+
+Phase 2 is complete. `./mvnw test` is green at **318 tests** (was 297; +21). Nothing here has been committed to
+git yet. Summary of what changed and what Phase 3 needs to know.
+
+### Step 3 — DTOs, the `PlayerData` collection, and the squad write
+
+**New wire DTOs** (`models/dto/`), all bound through the `@Qualifier("apiClient")` `SNAKE_CASE` mapper:
+
+- `PlayerItem` — one entry of the `players` array in `get_teams`. `@Getter` lombok, and **every field carries a
+  verbatim `@JsonProperty`** (`player_match_played`, `player_is_captain`, `player_passes_accuracy`, …) per the
+  Phase 1 rule that the SNAKE_CASE strategy does not re-process an explicit `@JsonProperty` value. Only the fields
+  this feature needs are bound; the misspelled upstream keys (`player_dispossesed`, `player_woordworks`) are
+  deliberately omitted. `player_key` (a JSON number) is not bound — we key on `player_id`.
+- `VenueDto` — the nested `venue` object (`venue_name`, `venue_address`, `venue_city`, `venue_capacity`,
+  `venue_surface`), again with verbatim `@JsonProperty` on each field.
+- `TopScorerItem` — one row of `get_topscorers` (`player_place`, `player_name`, `player_key`, `team_name`,
+  `team_key`, `goals`, `assists`, `penalty_goals`). Plain `@Getter`; SNAKE_CASE handles all of these, no
+  `@JsonProperty` needed.
+
+**`TeamDataDto`** gained `teamFounded` (`@JsonProperty("team_founded")`), `teamCountry` (`"team_country"`),
+`venue` (`VenueDto`), and `players` (`List<PlayerItem>`) — hand-written getters to match the file's existing
+style, each field annotated verbatim.
+
+**Domain:**
+
+- `models/Venue` — new plain value type (`name`, `address`, `city`, `capacity`, `surface`; capacity kept as a
+  String, it is display-only). `@Data @Builder @NoArgsConstructor @AllArgsConstructor`.
+- `domain/TeamData` gained `String founded` and `Venue venue`. **It did *not* gain `Set<TeamOneLiner> oneLiners`
+  yet — that is Phase 3 step 5**, and it needs `@Builder.Default` (bug #9) when you add it.
+- `domain/PlayerData` — new `@Document`. `@Id` is `player_id`; `teamId` is `@Indexed` (correct for prod, inert
+  under the test flag). Every numeric field is a nullable `Integer` because unused squad members send `""`, not
+  `"0"`. Keeper stats (`saves`, `insideBoxSaves`, `goalsConceded`) are on it per §6.4 step 3. `passesAccurate` is
+  named to flag that it is a *count* of completed passes, not a percentage.
+
+**Mapper:** `system/utils/mappers/PlayerDataMapper implements Mapper<TeamDataDto, List<PlayerData>>`,
+`@Qualifier("playerDataMapper")`. Takes the whole `TeamDataDto` so it can carry `teamKey`/`teamName` down onto
+each player. Blank/non-numeric → `null` (never throws); `player_injured` `"Yes"`/`"No"` → boolean;
+`player_is_captain` `"1"` → boolean; empty/absent `players` → empty list. `leagueScorerRank` is left null here.
+
+**Repository:** `PlayerDataRepository extends MongoRepository<PlayerData, String>` with
+`List<PlayerData> findByTeamId(String)`.
+
+**`TeamDataService`:**
+
+- Constructor gained a sixth arg, `@Qualifier("playerDataMapper") Mapper<TeamDataDto, List<PlayerData>>`. Any new
+  test constructing the service directly must pass it (the existing `TeamDataServiceTest` was updated).
+- `saveCompetitionTeams()` now, per competition: fetches `get_topscorers` once, builds a
+  `player_id → leagueScorerRank` map, then for each team upserts the `TeamData` (as before, now also writing
+  `founded` and `venue`) **and** `mongoTemplate.save(player)` for every mapped `PlayerData`, stamping the rank
+  from the map. `save` (full replace by `_id`) is deliberate — the rank is re-derived on every run, so there is
+  nothing to preserve across a refresh, unlike the `setOnInsert("standings", …)` on the team upsert.
+- New `save(TeamData)` method (delegates to `repository.save`) — added now because Phase 3's caching needs it.
+- `getTeamById` still throws `IllegalStateException` for an unknown id. **Phase 3 step 7 turns that into a
+  `NotFoundException`** — it was left alone here because nothing user-facing reaches it until the new route lands.
+
+### Step 4 — top scorers and the notable-player ranking
+
+- `FootballApiService.getTopScorers(Competition)` — `action=get_topscorers&league_id=`, one request per call,
+  same `ResponseHandler.process` contract (empty list on any failure). It does **not** iterate
+  `Competition.values()` itself; `saveCompetitionTeams` calls it once per competition in its existing loop.
+- The `leagueScorerRank` backfill matches `TopScorerItem.player_key` directly against
+  `PlayerData` `_id` (= `get_teams` `player_id`). The traps table says these are the same identifier and only the
+  JSON *type* differs, but **this equivalence has not been checked against a live key** — see the live-key
+  checklist below. If it turns out they differ, fall back to matching on `(team_key, player_name)`.
+- `services/PlayerDataService` — new `@Service`. `getNotablePlayers(String teamId)` returns **up to 10**
+  `PlayerData`, ranked per §6.4: drop anyone with no appearances (`matchesPlayed` null or 0), reserve one slot
+  for the first-choice `Goalkeepers` entry (most appearances, or just the first if none has played, or no slot at
+  all if the squad lists no keeper), score the rest on
+  `appearanceShare*3 + (goals*2 + assists) + (passes/100 + duelsWon/10 + shotsTotal/5)`, and cap any one
+  `position` bucket at 4. `getPlayersByTeam(String)` is also there for Phase 3's card.
+  - **Signature note:** §9's sketch says `getNotablePlayers(teamId, 5)`. That "5" is superseded — §6.4, the
+    Phase 2 "done when", and the step-4 test all say the list is 10, so the method takes just the id and the
+    count is the `NOTABLE_PLAYER_COUNT = 10` constant. If Phase 3 wants a smaller list for the *prompt* it should
+    slice the result, not re-rank.
+  - The scoring weights are a reasonable starting point, not tuned. Phase 4 step 9 tunes the *prompt*, not this
+    ranking, but if the notable list looks wrong during the step-9 smoke, this is where to adjust.
+
+### Tests added (21)
+
+- `system/utils/mappers/PlayerDataMapperTest` (5) — full-player binding, blank→null, non-numeric tolerated,
+  `player_injured` truthiness, empty squad.
+- `services/PlayerDataServiceTest` (7) — exactly 10 returned; first-choice keeper always in; keeper slot held
+  even when no keeper has played; zero-appearance outfielders dropped; bucket cap ≤ 4; a high-volume midfielder
+  beats a fringe forward; empty squad → empty list.
+- `models/dto/TeamDataDtoTest` (2) — `get_teams` binding through `JsonFixtures` (the production apiClient
+  mapper): team-level fields + nested venue, and the players array.
+- `system/utils/mappers/TeamDataUpdateMapperTest` (+2) — `founded` and the nested `venue`; null venue still sets
+  the key.
+- `services/FootballApiServiceTest` (+3) — `getTopScorers` query shape, field binding, empty-on-failure.
+- `services/TeamDataServiceTest` (+2, new `SavingTeams` nested class) — every squad member is `save`d and the
+  team is upserted; `leagueScorerRank` lands on the matching player and stays null on the rest.
+
+### Owed: live-key verification (from the phase "done when")
+
+Not blocking Phase 3, but do this before the feature merges — run `POST /teams` against a real `API_FOOTBALL_KEY`
+and a real Mongo, then check:
+
+1. `PlayerData` is populated for every tracked competition, with sane values (blanks landed as null, not 0).
+2. `get_topscorers` `player_key` actually equals `get_teams` `player_id` — inspect a few `PlayerData` docs for a
+   known top scorer (e.g. Haaland) and confirm `leagueScorerRank` is set. If it is always null, the match key is
+   wrong (see step 4 note above).
+3. `venue` and `founded` are populated on `TeamData`.
+4. Log a warning-worthy case: a national team (WORLD_CUP) with an empty `players` array — confirm it does not
+   error.
+
+### Where Phase 3 starts
+
+Step 5: `enums/Perspective` (`FAN`, `RIVAL_FAN`, `NEUTRAL`); `TeamOneLiner` on `TeamData` with `@Builder.Default`
+on the `Set`; `TeamOneLinerPromptBuilder implements PromptBuilder`; the `PromptBuilderFactory` team overload.
+Read §3, §5, §6, and §8 (the `PromptPhrasing` helper Phase 1 extracted — `phraseStanding` now takes a
+`Competition` directly, so it works without a `Fixture`). `PlayerDataService.getNotablePlayers` is ready for the
+data block.

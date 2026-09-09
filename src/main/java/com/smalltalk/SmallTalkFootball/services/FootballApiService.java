@@ -81,6 +81,25 @@ public class FootballApiService {
                 .toList();
     }
 
+    public List<TopScorerItem> getTopScorers(Competition competition) {
+        return ResponseHandler.process(
+                        () -> restClient.get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam("APIkey", apiKey)
+                                        .queryParam("action", "get_topscorers")
+                                        .queryParam("league_id", competition.getCode())
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class),
+                        "Failed fetching " + competition + " top scorers",
+                        new TypeReference<List<TopScorerItem>>() {
+                        },
+                        apiClientObjectMapper)
+                .map(List::stream)
+                .orElse(Stream.empty())
+                .toList();
+    }
+
     public Optional<HeadToHeadResponse> getHeadToHeadData(String firstTeamId, String secondTeamId) {
         return ResponseHandler.process(
                 () -> restClient.get()

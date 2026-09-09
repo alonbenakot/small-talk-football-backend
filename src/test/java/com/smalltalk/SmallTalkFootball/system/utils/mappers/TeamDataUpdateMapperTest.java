@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.system.utils.mappers;
 
+import com.smalltalk.SmallTalkFootball.models.Venue;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.testsupport.JsonFixtures;
 import org.bson.Document;
@@ -60,5 +61,41 @@ class TeamDataUpdateMapperTest {
         Update update = mapper.map(dto("[{\"coach_name\": \"Arne Slot\"}]"));
 
         assertThat(setFields(update)).doesNotContainKey("standings");
+    }
+
+    @Test
+    void bindsFoundedAndTheNestedVenueObject() {
+        TeamDataDto team = JsonFixtures.parse("""
+                {
+                  "team_key": "80", "team_name": "Manchester City", "team_badge": "mc.png",
+                  "team_founded": "1880", "coaches": [],
+                  "venue": {
+                    "venue_name": "Etihad Stadium", "venue_address": "Rowsley Street",
+                    "venue_city": "Manchester", "venue_capacity": "55097", "venue_surface": "grass"
+                  }
+                }
+                """, TeamDataDto.class);
+
+        Update update = mapper.map(team);
+
+        assertThat(setFields(update)).containsEntry("founded", "1880");
+
+        Venue venue = (Venue) setFields(update).get("venue");
+        assertThat(venue.getName()).isEqualTo("Etihad Stadium");
+        assertThat(venue.getCity()).isEqualTo("Manchester");
+        assertThat(venue.getCapacity()).isEqualTo("55097");
+        assertThat(venue.getSurface()).isEqualTo("grass");
+    }
+
+    /**
+     * A team payload can arrive without a venue (national sides, sparse leagues); the
+     * mapper still sets the key so a stale venue is cleared rather than left behind.
+     */
+    @Test
+    void setsANullVenueWhenThePayloadHasNone() {
+        Update update = mapper.map(dto("[]"));
+
+        assertThat(setFields(update)).containsKey("venue");
+        assertThat(setFields(update).get("venue")).isNull();
     }
 }

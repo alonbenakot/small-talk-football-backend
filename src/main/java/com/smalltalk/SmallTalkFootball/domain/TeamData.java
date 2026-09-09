@@ -2,6 +2,7 @@ package com.smalltalk.SmallTalkFootball.domain;
 
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.Venue;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +27,10 @@ public class TeamData {
     private String coach;
 
     private String crest;
+
+    private String founded;
+
+    private Venue venue;
 
     private Map<Competition, Standing> standings;
 }

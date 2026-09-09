@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
@@ -19,10 +20,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -38,22 +36,29 @@ public class TeamDataService {
 
     private final Mapper<TeamDataDto, Update> teamDataUpdateMapper;
 
+    private final Mapper<TeamDataDto, List<PlayerData>> playerDataMapper;
+
     public TeamDataService(
             TeamDataRepository repository,
             MongoTemplate mongoTemplate,
             FootballApiService service,
             @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper,
-            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper) {
+            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper,
+            @Qualifier("playerDataMapper") Mapper<TeamDataDto, List<PlayerData>> playerDataMapper) {
         this.repository = repository;
         this.service = service;
         this.standingMapper = competitionRatingMapper;
         this.teamDataUpdateMapper = teamDataUpdateMapper;
+        this.playerDataMapper = playerDataMapper;
         this.mongoTemplate = mongoTemplate;
     }
 
     public void saveCompetitionTeams() {
 
         Arrays.stream(Competition.values()).forEach(competition -> {
+
+            Map<String, Integer> scorerRankByPlayerId = leagueScorerRanks(competition);
+
             service.getTeamDataList(competition).forEach(teamDto -> {
 
                 Query query = Query.query(Criteria.where("_id").is(teamDto.getTeamKey()));
@@ -63,9 +68,49 @@ public class TeamDataService {
                         .setOnInsert("standings", new EnumMap<>(Competition.class));
 
                 mongoTemplate.upsert(query, update, TeamData.class);
+
+                savePlayers(teamDto, scorerRankByPlayerId);
             });
 
         });
+    }
+
+    public TeamData save(TeamData team) {
+        return repository.save(team);
+    }
+
+    /**
+     * A player_id → league-scoring-charts place map for one competition, from
+     * {@code get_topscorers}. {@code player_key} in that response is the same identifier as
+     * {@code player_id} in {@code get_teams}, so it keys straight onto the stored player.
+     */
+    private Map<String, Integer> leagueScorerRanks(Competition competition) {
+        Map<String, Integer> ranks = new HashMap<>();
+        service.getTopScorers(competition).forEach(scorer -> {
+            Integer place = parsePlace(scorer.getPlayerPlace());
+            if (scorer.getPlayerKey() != null && place != null) {
+                ranks.putIfAbsent(scorer.getPlayerKey(), place);
+            }
+        });
+        return ranks;
+    }
+
+    private void savePlayers(TeamDataDto teamDto, Map<String, Integer> scorerRankByPlayerId) {
+        playerDataMapper.map(teamDto).forEach(player -> {
+            player.setLeagueScorerRank(scorerRankByPlayerId.get(player.getId()));
+            mongoTemplate.save(player);
+        });
+    }
+
+    private static Integer parsePlace(String place) {
+        if (place == null || place.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(place.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public void refreshStandings() {

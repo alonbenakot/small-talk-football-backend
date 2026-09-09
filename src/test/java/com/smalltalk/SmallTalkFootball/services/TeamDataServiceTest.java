@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
@@ -9,6 +10,7 @@ import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
+import com.smalltalk.SmallTalkFootball.models.dto.TopScorerItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.testsupport.TestFixtures;
@@ -30,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +48,8 @@ class TeamDataServiceTest {
     private Mapper<StandingsDtoItem, Standing> standingMapper;
     @Mock
     private Mapper<TeamDataDto, Update> teamDataUpdateMapper;
+    @Mock
+    private Mapper<TeamDataDto, List<PlayerData>> playerDataMapper;
 
     @Captor
     private ArgumentCaptor<Iterable<TeamData>> savedTeams;
@@ -53,7 +58,8 @@ class TeamDataServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TeamDataService(repository, mongoTemplate, apiService, standingMapper, teamDataUpdateMapper);
+        service = new TeamDataService(repository, mongoTemplate, apiService, standingMapper,
+                teamDataUpdateMapper, playerDataMapper);
     }
 
     @Nested
@@ -239,6 +245,59 @@ class TeamDataServiceTest {
             assertThatThrownBy(() -> service.getTeamById("nope"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("nope");
+        }
+    }
+
+    @Nested
+    class SavingTeams {
+
+        private final ArgumentCaptor<PlayerData> savedPlayer = ArgumentCaptor.forClass(PlayerData.class);
+
+        private TeamDataDto premierLeagueTeam;
+
+        @BeforeEach
+        void onlyPremierLeagueReturnsData() {
+            premierLeagueTeam = mock(TeamDataDto.class);
+            when(premierLeagueTeam.getTeamKey()).thenReturn("80");
+
+            when(apiService.getTeamDataList(any())).thenReturn(List.of());
+            when(apiService.getTeamDataList(Competition.PREMIER_LEAGUE)).thenReturn(List.of(premierLeagueTeam));
+            when(apiService.getTopScorers(any())).thenReturn(List.of());
+            when(teamDataUpdateMapper.map(premierLeagueTeam)).thenReturn(new Update());
+        }
+
+        @Test
+        void upsertsTheTeamAndWritesEverySquadMember() {
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
+                    PlayerData.builder().id("p1").teamId("80").build(),
+                    PlayerData.builder().id("p2").teamId("80").build()));
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
+            verify(mongoTemplate, times(2)).save(any(PlayerData.class));
+        }
+
+        @Test
+        void backfillsTheLeagueScorerRankOntoTheMatchingPlayer() {
+            TopScorerItem scorer = mock(TopScorerItem.class);
+            when(scorer.getPlayerKey()).thenReturn("p1");
+            when(scorer.getPlayerPlace()).thenReturn("3");
+            when(apiService.getTopScorers(Competition.PREMIER_LEAGUE)).thenReturn(List.of(scorer));
+
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
+                    PlayerData.builder().id("p1").teamId("80").build(),
+                    PlayerData.builder().id("p2").teamId("80").build()));
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate, times(2)).save(savedPlayer.capture());
+            assertThat(savedPlayer.getAllValues())
+                    .filteredOn(player -> player.getId().equals("p1"))
+                    .allMatch(player -> player.getLeagueScorerRank() == 3);
+            assertThat(savedPlayer.getAllValues())
+                    .filteredOn(player -> player.getId().equals("p2"))
+                    .allMatch(player -> player.getLeagueScorerRank() == null);
         }
     }
 }
