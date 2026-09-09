@@ -6,8 +6,6 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.HeadToHeadData;
 import com.smalltalk.SmallTalkFootball.models.Score;
-import com.smalltalk.SmallTalkFootball.models.Standing;
-import com.smalltalk.SmallTalkFootball.models.WinLossDraw;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,7 +52,7 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
     @Override
     public String style() {
         String bias = preferredTeam.isEmpty() ? "neutral" : "slightly biased";
-        return "%s, %s, casual friendly banter.".formatted(getLanguageDescription(), bias);
+        return "%s, %s, casual friendly banter.".formatted(language.getDescription(), bias);
     }
 
     @Override
@@ -84,11 +82,11 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
                 %s coach: %s
                 %s coach: %s""".formatted(home, fixture.getHomeTeam().getCoach(), away, fixture.getAwayTeam().getCoach());
 
-        String homeStanding = phraseStanding(home, homeTeamData);
-        String awayStanding = phraseStanding(away, awayTeamData);
+        String homeStanding = PromptPhrasing.phraseStanding(home, homeTeamData, fixture.getCompetition());
+        String awayStanding = PromptPhrasing.phraseStanding(away, awayTeamData, fixture.getCompetition());
 
-        String homeForm = phraseRecentForm(headToHeadData.getFirstTeamLastFixtures());
-        String awayForm = phraseRecentForm(headToHeadData.getSecondTeamLastFixtures());
+        String homeForm = PromptPhrasing.phraseRecentForm(headToHeadData.getFirstTeamLastFixtures());
+        String awayForm = PromptPhrasing.phraseRecentForm(headToHeadData.getSecondTeamLastFixtures());
 
         String h2h = phraseHeadToHead(headToHeadData.getTeamsLastFixtures());
 
@@ -110,52 +108,6 @@ public class UpcomingFixtureOneLinerPromptBuilder implements PromptBuilder {
                 Head-to-head history:
                 %s""".formatted(competition, home, away, coaches, homeStanding, awayStanding,
                 home, homeForm, away, awayForm, h2h);
-    }
-
-    private String getLanguageDescription() {
-        return switch (language) {
-            case HEBREW -> "Hebrew";
-            case AMERICAN -> "American English";
-            case BRITISH -> "British English";
-        };
-    }
-
-    private String phraseStanding(String teamName, TeamData teamData) {
-        Standing standing = teamData.getStandings() != null
-                ? teamData.getStandings().get(fixture.getCompetition())
-                : null;
-
-        if (standing == null) {
-            return "%s: standing data unavailable".formatted(teamName);
-        }
-
-        WinLossDraw overall = standing.getOverall();
-        return "%s: position %d, %d pts (%dW %dD %dL)".formatted(
-                teamName,
-                standing.getPosition(),
-                standing.getPoints(),
-                overall.getWins(),
-                overall.getDraws(),
-                overall.getLosses());
-    }
-
-    private String phraseRecentForm(List<Fixture> recentFixtures) {
-        if (recentFixtures == null || recentFixtures.isEmpty()) {
-            return "No recent fixtures available.";
-        }
-        return recentFixtures.stream()
-                .limit(5)
-                .map(f -> {
-                    Score score = f.getScore();
-                    String result = score.isDraw() ? "Draw" : "Win for " + score.getWinner();
-                    return "  %s %d-%d %s (%s)".formatted(
-                            f.getHomeTeam().getName(),
-                            score.getHome(),
-                            score.getAway(),
-                            f.getAwayTeam().getName(),
-                            result);
-                })
-                .collect(Collectors.joining("\n"));
     }
 
     private String phraseHeadToHead(List<Fixture> h2hFixtures) {

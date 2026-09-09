@@ -60,8 +60,8 @@ class TeamDataServiceTest {
     class Enrichment {
 
         /**
-         * FixtureAssembler cannot read team names or coaches out of the match feed, so every
-         * fixture arrives here needing them filled in from stored team data.
+         * The match feed can omit team names and coaches (and, for unknown teams, always will),
+         * so enrichment fills in whatever the assembled fixture is still missing from stored team data.
          */
         @Test
         void fillsInTheDetailTheMatchFeedDoesNotProvide() {

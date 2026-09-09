@@ -33,7 +33,7 @@ same list, organised by component, not a separate stage of work. Test convention
 JUnit/Mockito with no Spring context wherever possible, `@WebMvcTest` with `excludeFilters` for controllers, and
 `JsonFixtures.parse` for anything deserialised from apifootball. Run `./mvnw test` (~15s, no Docker or network).
 
-### Phase 1 — Groundwork (steps 1–2)
+### Phase 1 — Groundwork (steps 1–2) — ✅ DONE (2026-09-09)
 
 Small, self-contained, no new behaviour. First because everything after it depends on DTO binding actually
 working.
@@ -49,7 +49,7 @@ working.
      it needs editing, the refactor changed behaviour and went wrong.
 
 **Done when:** `./mvnw test` is green, no test was deleted, and `FixtureAssembler` yields non-null team names and
-coaches from a payload that carries them.
+coaches from a payload that carries them. ✅ All 297 tests green; see the Phase 1 handoff notes at the end of this document.
 
 ### Phase 2 — Data layer (steps 3–4)
 
@@ -821,3 +821,62 @@ do not "correct" them.
 | `player_country` blank even for internationals | Never assume a field is populated |
 | `player_injured` is `"Yes"` / `"No"` | Parse to boolean explicitly |
 | Numeric-looking values are all strings | Every parse goes through a tolerant helper (§4.6) |
+
+
+---
+
+## Phase 1 handoff notes (for the Phase 2 session)
+
+Phase 1 is complete and committed to the working tree (not yet committed to git). Summary of what changed and
+what the next session should know.
+
+### Step 1 — bug #3 fixed
+
+`@JsonProperty` with the **verbatim snake_case wire name** was added to:
+
+- `MatchDto.matchHometeamName` → `@JsonProperty("match_hometeam_name")`
+- `MatchDto.matchAwayteamName` → `@JsonProperty("match_awayteam_name")`
+- `MatchDto.lineup` → `@JsonProperty("lineup")`
+- `MatchLineup.home` / `MatchLineup.away` → `@JsonProperty("home")` / `@JsonProperty("away")`
+- `LineUp.coach` → `@JsonProperty("coach")`
+
+`CoachItem.lineupPlayer` was left alone — its getter (`getLineupPlayer`) already matches the field name, so it
+binds without help. The rule confirmed in practice: with the `SNAKE_CASE` strategy, an explicit `@JsonProperty`
+value is **not** run through the strategy, so it must be the literal wire key. **When you add `players` and
+`venue` to `TeamDataDto` in Phase 2 step 3, annotate every new field the same way** — that DTO has the same
+getter/field drift and `TeamDataDto.getCoaches()` is already an example of it.
+
+Consequence now live: `TeamDataService.enrichTeamsData` is a genuine fallback rather than load-bearing, and
+`FixtureAssembler.getCoach()` is no longer dead code. No behavioural regression — enrichment still fills gaps and
+still does not overwrite values the feed supplied.
+
+Tests:
+- `FixtureAssemblerTest.UnboundFields` was renamed to `TeamNameAndCoachBinding` and its four cases now assert
+  correct binding (names bind, coach binds, winner is derived from the bound name, missing lineup still
+  tolerated).
+- New `com.smalltalk.SmallTalkFootball.models.dto.MatchDtoTest` exercises the deserialization directly through
+  `JsonFixtures.parse` — team names, the full lineup subtree, and a regression check on already-working fields.
+- One stale Javadoc sentence in `TeamDataServiceTest.Enrichment` was corrected (it claimed the assembler "cannot"
+  read names).
+- `bugs.md` row 3 and section 3 are marked fixed with a note on the approach.
+
+### Step 2 — refactors
+
+- `Language` enum gained a `description` field and `getDescription()` (`BRITISH` → "British English",
+  `AMERICAN` → "American English", `HEBREW` → "Hebrew"). Both existing builders now call
+  `language.getDescription()` and their private `getLanguageDescription()` switch methods are gone.
+- New package-private `system/utils/prompts/PromptPhrasing` holds `phraseStanding(teamName, teamData, competition)`
+  and `phraseRecentForm(List<Fixture>)`, extracted verbatim from `UpcomingFixtureOneLinerPromptBuilder`. Note the
+  signature change: `phraseStanding` now takes `Competition` explicitly rather than reading it off a `fixture`
+  field, so the Phase 3 `TeamOneLinerPromptBuilder` can call it without a fixture in hand.
+- `UpcomingFixtureOneLinerPromptBuilder.phraseHeadToHead` was **left in place** — it is byte-identical to
+  `phraseRecentForm` but semantically distinct, and the plan only asked for the two named helpers. If Phase 3
+  wants it, point it at `PromptPhrasing.phraseRecentForm` and delete the private copy.
+- `PromptBuilderTest` was not touched and stays green, confirming the refactor changed no output.
+
+### Where Phase 2 starts
+
+Step 3: `TeamDataDto` gains `players` (array) and a nested `venue` object; add `PlayerItem` and `VenueDto`; add
+the `PlayerData` document + repository + mapper; write players in `saveCompetitionTeams`. Read §4.5, §4.6 and the
+appendix (the live `get_teams` response and its traps table) — **not** the published apifootball docs. Apply
+`@JsonProperty` to every new `TeamDataDto` field per the rule above.
