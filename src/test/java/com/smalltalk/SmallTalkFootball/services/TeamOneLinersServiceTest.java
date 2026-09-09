@@ -137,6 +137,22 @@ class TeamOneLinersServiceTest {
         }
 
         /**
+         * The card renders one line, and live output came back split across two with trailing
+         * spaces before the break. Normalising in code is more reliable than asking the prompt.
+         */
+        @Test
+        void collapsesAMultiLineAnswerOntoOneLine() throws Exception {
+            when(aiService.generate(any())).thenReturn("  Carrick has them scoring again.  \n\nEuropean night next.  ");
+            when(fixtureService.getRecentFinishedForTeam(any(), anyInt()))
+                    .thenReturn(List.of(playedAt(GENERATED_AT.plus(1, ChronoUnit.DAYS))));
+
+            TeamSmallTalk result = callFan(teamWithCachedOneLiner("the cached sentence"));
+
+            assertThat(result.getOneLiner().getText())
+                    .isEqualTo("Carrick has them scoring again. European night next.");
+        }
+
+        /**
          * A team's position moves when other teams play, so a sentence can go stale during a
          * break in its own fixtures. Without this rule "top of the table" survives being
          * overtaken.

@@ -72,10 +72,25 @@ class PromptPlayerSelectionTest {
     @Test
     void betterLeagueRanksComeFirst() {
         List<PlayerData> squad = List.of(
-                player("tenth", 10, 5, 0).leagueScorerRank(10).build(),
+                player("fifth", 10, 5, 0).leagueScorerRank(5).build(),
                 player("second", 10, 4, 0).leagueScorerRank(2).build());
 
-        assertThat(namesFrom(squad)).containsExactly("second", "tenth");
+        assertThat(namesFrom(squad)).containsExactly("second", "fifth");
+    }
+
+    /**
+     * get_topscorers ranks the whole league, so a place on its own is not a distinction. Live
+     * output named a one-goal defender who sat 49th, and forwards at 10th and 16th, which read
+     * as trivia rather than knowledge — hence the top-five cap.
+     */
+    @Test
+    void aPlaceOutsideTheTopFiveQualifiesForNothing() {
+        List<PlayerData> squad = List.of(
+                player("tenth", 10, 1, 0).leagueScorerRank(10).build(),
+                player("forty-ninth", 10, 1, 0).leagueScorerRank(49).build(),
+                player("unranked", 10, 1, 0).build());
+
+        assertThat(PromptPlayerSelection.select(squad)).isEmpty();
     }
 
     /**

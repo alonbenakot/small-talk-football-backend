@@ -109,9 +109,9 @@ one after a new finished fixture or a standings move, and a 400 for a WORLD_CUP-
 `TeamOneLinersServiceTest`; the live-database check of the two derived queries is still owed, along with Phase 2's
 live-key check. See the Phase 3 handoff notes at the end of this document.
 
-### Phase 4 — Operations and tuning (steps 8–9)
+### Phase 4 — Operations and tuning (steps 8–9) — ✅ DONE (2026-09-09)
 
-8. `TeamsJob` on a daily cron for the squad refresh (§4.7).
+8. ✅ `TeamsJob` on a daily cron for the squad refresh (§4.7).
    - **Tests:** none beyond asserting the job delegates — the existing jobs carry no tests either, and a cron
      expression is not meaningfully testable here.
 9. Manual smoke against a real database and a real OpenAI key. Read actual output for all three perspectives and
@@ -121,6 +121,10 @@ live-key check. See the Phase 3 handoff notes at the end of this document.
      change breaks it, decide deliberately whether the test or the prompt was wrong.
 
 **Done when:** all three perspectives produce sentences you would actually say out loud.
+✅ Run live against the real cluster, a real apifootball key and a real OpenAI key. All three perspectives
+produce sentences worth saying, and the smoke closed every verification owed from Phases 2 and 3. It also turned
+up two genuine defects — a venue side decided on team names, and multi-line model output — both fixed here with
+regression tests. Suite green at **393 tests** (+4). See the Phase 4 handoff notes at the end of this document.
 
 ### Later
 
@@ -1117,3 +1121,187 @@ same sitting against a real key and a real Mongo:
    named. `TeamOneLinerPromptBuilderTest` asserts on specific strings from `role()`, `style()` and the data
    block's labels — if a tuning change breaks it, decide deliberately which of the two was wrong, as the phase
    description says.
+
+
+---
+
+## Phase 4 handoff notes (feature complete)
+
+Phase 4 is complete and the whole feature has been exercised end to end against live data. `./mvnw test` is green
+at **393 tests** (was 389; +4). Step 8 added the job; step 9 was run against the real cluster and produced two
+code fixes, one tuning change, and the verification of everything Phases 2 and 3 left owed.
+
+### Step 8 — `TeamsJob`
+
+- `services/jobs/TeamsJob.java` — `@Component`, `@RequiredArgsConstructor`, one `@Scheduled(cron = "0 0 4 * * *",
+  zone = "Asia/Jerusalem")` method calling `teamDataService.saveCompetitionTeams()` and logging on completion,
+  matching `FixturesJob`'s shape.
+- **Why 04:00.** It is the only hour that collides with nothing else: `FixturesJob` runs at 07:00, 20:00, 21:00,
+  23:30 and 00:30, and `StandingsJob` at 00:30, 19:00 and 21:00. A squad refresh overlapping a fixture write
+  would have both jobs touching `TeamData`. Keep that separation if the cron ever moves.
+- `services/jobs/TeamsJobTest` (1) — the delegation assertion, plus `verifyNoMoreInteractions`. It is the first
+  test under `services/jobs`; the other two jobs still have none.
+- **`saveCompetitionTeams` takes about eleven minutes.** The live `POST /teams` returned 201 after **655
+  seconds**. The cause is `TeamDataService.savePlayers`, which issues one `mongoTemplate.save` per player — some
+  5,500 round-trips to Atlas. It is survivable for a nightly job at 04:00 but it is the obvious candidate for a
+  bulk write, and it would be intolerable if the squad refresh ever needed to run on demand.
+
+### Step 9 — what the live smoke found
+
+Seeded in the documented order (`POST /fixtures?matchDays=30&matchDaysIntoFuture=14` → `POST /teams` →
+`PATCH /teams/standings`, 283 fixtures of which 167 finished, 254 teams, 5,500 players), then read real output.
+
+**Two defects, both fixed here:**
+
+1. **The prompt named the team as its own opponent.** `TeamOneLinerPromptBuilder.phraseNextFixture` decided home
+   or away by comparing the team's *name* against the fixture's home-team *name*. Those names come from different
+   apifootball endpoints and disagree — `TeamData.name` is "Manchester United" while the fixture carries
+   "Manchester Utd". The comparison failed, the venue side inverted, and the data block told the model United
+   were "away at Manchester Utd" for a home tie against Sabah Baku. The model duly wrote about an "oddly listed"
+   fixture, which is how it was caught. It now compares ids, exactly as `TeamFacts.isHome` already did — the
+   Phase 3 notes flagged ids as the right key for this and the builder simply did not follow it. Pinned by
+   `TeamOneLinerPromptBuilderTest.DataBlock.decidesTheVenueSideOnIdsNotNames`.
+2. **The model returns two lines.** Real answers came back split on a hard newline with trailing spaces, which
+   the single-line card cannot render. `TeamOneLinersService.singleLine` now strips and collapses whitespace runs
+   before the text is stored — cheaper and more reliable than a prompt constraint. Pinned by
+   `TeamOneLinersServiceTest.Caching.collapsesAMultiLineAnswerOntoOneLine`.
+
+**One tuning change.** `PromptPlayerSelection` qualified *any* non-null `leagueScorerRank`, and `get_topscorers`
+ranks the entire league — live data had a one-goal defender at 49th, and one-goal forwards at 10th and 16th.
+That produced limp lines like "Kramaric already on the league scoring charts". A new
+`MAX_LEAGUE_SCORER_RANK = 5` keeps the fact only while it still sounds like knowledge. This broke
+`PromptPlayerSelectionTest.betterLeagueRanksComeFirst`, which had pinned rank 10 as qualifying; per the phase
+instruction the test was judged wrong and updated, and
+`aPlaceOutsideTheTopFiveQualifiesForNothing` now pins the cap. `STANDOUT_MULTIPLE` and
+`STANDOUT_RATE_PER_APPEARANCE` were left alone — they were picking sensible players.
+
+**Verifications closed:**
+
+- *Phase 2's live-key checklist.* `playerData` populated (5,492 documents), `venue` and `founded` present on
+  202 of 254 teams (the other 52 are national sides, as expected), and no error on a national team's empty
+  `players` array. `leagueScorerRank` lands correctly: `player_key` in `get_topscorers` really is the same
+  identifier as `player_id` in `get_teams` — a spot check traced a stored rank of 49 back to the exact
+  `player_key` in the Bundesliga response, confirming the join rather than a coincidence.
+- *Phase 3's two derived queries.* `recentForm` and `nextFixture` both come back populated, so the nested paths
+  in `findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId` and its `FinishedFalse` mirror do resolve
+  against a real database. That was the one thing the mocked tests could not prove.
+- *The cache.* A second identical request returned a byte-identical sentence, and the stored document carries
+  three independent entries (one per perspective) each with `generatedAt`, `positionAtGeneration` and
+  `pointsAtGeneration`. The forced-regeneration half was covered in `TeamOneLinersServiceTest` rather than live,
+  because moving a stored snapshot by hand needs a database write.
+- *The rejections.* `GET /one-liners/teams/22` (France, WORLD_CUP only) returns 400 with
+  `TEAM_HAS_NO_LEAGUE_STANDING`, and an unknown id returns 404 with `NO_TEAM_FOUND` — both live, both in the
+  `SmallTalkResponse` envelope.
+
+**A data caveat, not a bug.** apifootball returns wrong coaches for some teams — it gives Liverpool's coach as
+Andoni Iraola, and the raw `get_teams` response says so directly. The prompt repeats whatever the API says, so a
+confidently wrong coach in a sentence is a source-data problem and no amount of prompt tuning will fix it. Worth
+knowing before anyone debugs it as a prompt fault.
+
+### Sample of the finished output
+
+> **FAN** — "Carrick's got us playing some decent stuff again, that 5-2 over Ipswich and Sesko's finish were
+> class. Sitting 11th's nothing this early, get past Sabah Baku at home and the whole mood lifts."
+>
+> **RIVAL_FAN** — "Sixth with two draws already, and Ekitike injured before Atleti at Anfield — this Iraola era's
+> hitting turbulence early."
+>
+> **NEUTRAL** — "Hoffenheim have somehow ended up 16th with no points, despite pushing both Köln and Dortmund in
+> those 3-2 defeats. Big one against Stuttgart next, and they'll be hoping Kramarić keeps that early scoring
+> touch going."
+
+### What is next
+
+Step 10 (`get_news` by `team_id`) and then the player one-liner, which `PlayerData` already unblocks. Two things
+this phase deliberately did not touch: **bug #9** (`Fixture.oneLiners` still has no `@Builder.Default`), and the
+per-player write loop in `TeamDataService.savePlayers` described above. Neither blocks the feature.
+
+
+---
+
+## Feature summary — how the whole thing flows
+
+Written at the end of Phase 4, describing the feature as built rather than as planned. Two paths matter: the
+scheduled ingestion that fills the collections, and the single request that turns them into a sentence.
+
+### Ingestion — three jobs, three collections
+
+| Job | Cron (`Asia/Jerusalem`) | Calls | Writes |
+|---|---|---|---|
+| `FixturesJob` | 07:00, 20:00, 21:00, 23:30, 00:30 | `get_events` per `Competition` | `fixture` |
+| `TeamsJob` | 04:00 (added in Phase 4) | `get_teams` + `get_topscorers` per `Competition` | `teamData`, `playerData` |
+| `StandingsJob` | 00:30, 19:00, 21:00 | `get_standings` per `Competition` | `teamData.standings` |
+
+Each is also exposed as an admin endpoint (`POST /fixtures`, `POST /teams`, `PATCH /teams/standings`) for manual
+runs. Every external call goes through `ResponseHandler.process`, which never throws — a competition the plan
+does not cover, or an HTML error page, yields an empty list and the run continues.
+
+`TeamsJob` is the one this feature added. Per competition it first builds a `player_id → scoring-charts place`
+map from `get_topscorers`, then upserts each team from `get_teams` (name, coach, crest, **venue**, **founded**)
+and writes every squad member as a `PlayerData` document carrying that rank. `_id` is the apifootball
+`player_id`, so a re-run updates in place.
+
+### Request — `GET /one-liners/teams/{teamId}`
+
+Public: it lives under `/one-liners`, which `JwtAuthFilter` does not gate, and `JwtAuthFilterTest.Open` pins that
+so a future filter edit cannot silently close it. Parameters are `lang` (required), `perspective` (defaults to
+`NEUTRAL`) and `competition` (optional).
+
+1. **Resolve the team.** `TeamDataService.getTeamById` — a miss is a `NotFoundException`, 404 `NO_TEAM_FOUND`.
+2. **Resolve the competition** (§6.3): the requested one if given, otherwise the team's domestic league — the
+   standing that is neither Champions League nor World Cup — and the most-played of those if there is still a
+   choice. A team with no league standing at all (a national side) is rejected with 400
+   `TEAM_HAS_NO_LEAGUE_STANDING` (§6.5).
+3. **Gather the dry facts.** The last five finished fixtures and the next unfinished one, both from `fixture` via
+   derived queries that match the team on either side of the tie; and the ten notable players from `playerData`,
+   ranked by contribution with the first-choice goalkeeper always included and a cap per position group.
+4. **Look for a cached sentence.** `TeamData.oneLiners` is keyed on language + competition + perspective — the
+   text is deliberately outside `equals`, which is why regeneration must use `replaceOneLiner` and not `add`.
+   There is no TTL: a cached entry is fresh while the team has not played since it was written *and* its stored
+   `positionAtGeneration` / `pointsAtGeneration` still match the table. A null `generatedAt` is always stale.
+5. **Otherwise generate.** `TeamPromptContext` (team, competition, form, next fixture, the ten players) goes to
+   `PromptBuilderFactory`, which returns a `TeamOneLinerPromptBuilder` for the requested perspective. The builder
+   fills the shared `PromptBuilder` template — role, task, style, structure, constraints, examples, data. Role,
+   style and examples change per perspective; the data block does not, because a perspective is a voice and not a
+   different set of facts. `PromptPlayerSelection` narrows the ten to the 0–3 worth naming (injured regular →
+   top-five scoring-charts place → clear standout); naming nobody is a normal outcome and the block then tells
+   the model to talk about the table and the form. The answer is collapsed onto one line and stored, and only
+   then does the team document get saved.
+6. **Respond.** `TeamSmallTalk` = the one-liner plus `TeamFacts` — crest, coach, venue, founded, standing, recent
+   form, next fixture, all ten notable players — inside the usual `SmallTalkResponse` envelope. `TeamData` is
+   never returned directly, and the caching snapshot fields are `@JsonIgnore`d off the wire.
+
+### The invariant worth remembering
+
+Two apifootball endpoints name the same team differently — `get_teams` says "Manchester United", `get_events`
+says "Manchester Utd". **Anything that decides which side of a fixture a team is on must compare ids.** Both
+`TeamFacts.isHome` and `TeamOneLinerPromptBuilder.phraseNextFixture` do; the latter only after Phase 4 caught it
+telling the model a team was away at itself.
+
+---
+
+## Suggested next work — the eleven-minute squad refresh
+
+Not implemented; recorded here for whoever picks it up.
+
+`TeamDataService.saveCompetitionTeams` took **655 seconds** in the Phase 4 smoke. Almost none of that is
+apifootball: the whole run makes 14 HTTP calls (a `get_teams` and a `get_topscorers` per competition). The cost
+is the database — `savePlayers` issues one `mongoTemplate.save` per player, roughly 5,500 sequential round-trips
+to Atlas at about 120 ms each, plus one upsert per team on top.
+
+**The suggestion: batch the writes per team with `BulkOperations`.** `mongoTemplate.bulkOps(BulkMode.UNORDERED,
+PlayerData.class)`, one `replaceOne` with upsert per player, executed once per team, turns ~5,500 round-trips
+into ~250. The semantics are unchanged — a replace on `_id` is exactly what `save` already does — so no mapper,
+no document shape and no test needs to move; it is a change contained to one private method. The `teamData`
+upserts could join the same pattern for a second, smaller win. That should bring the run into the low tens of
+seconds, dominated by the API calls rather than the database.
+
+Two cheaper alternatives, both worse: parallelising the saves keeps the same 5,500 round-trips and just spends
+connections to hide them, and diffing against stored players to skip unchanged rows adds a read per player to
+avoid a write. Neither is worth it while a bulk write is this contained.
+
+**Why bother, given it runs at 04:00.** Three reasons. It makes the *manual* `POST /teams` usable — eleven
+minutes is long enough that an operator assumes it hung, which is exactly what happened during the smoke. It
+keeps a failure cheap to retry. And it is the difference between the squad refresh being something the feature
+could one day do on demand for a single stale team, and something that can only ever run overnight.
+

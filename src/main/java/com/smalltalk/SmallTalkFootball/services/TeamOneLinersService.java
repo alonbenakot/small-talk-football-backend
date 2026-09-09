@@ -113,7 +113,7 @@ public class TeamOneLinersService {
                 .language(lang)
                 .competition(competition)
                 .perspective(perspective)
-                .text(aiService.generate(promptBuilder.buildPrompt()))
+                .text(singleLine(aiService.generate(promptBuilder.buildPrompt())))
                 .generatedAt(Instant.now())
                 .positionAtGeneration(standing == null ? null : standing.getPosition())
                 .pointsAtGeneration(standing == null ? null : standing.getPoints())
@@ -125,6 +125,15 @@ public class TeamOneLinersService {
         teamDataService.save(team);
 
         return oneLiner;
+    }
+
+    /**
+     * The card renders the sentence on one line, but the model happily returns two, split on a
+     * hard newline with trailing spaces. Collapsing every whitespace run to a single space is
+     * cheaper and more reliable than asking the prompt not to do it.
+     */
+    private static String singleLine(String text) {
+        return text == null ? null : text.strip().replaceAll("\\s+", " ");
     }
 
     /**

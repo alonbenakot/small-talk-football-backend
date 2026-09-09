@@ -151,6 +151,24 @@ class TeamOneLinerPromptBuilderTest {
                     .contains("away at Everton");
         }
 
+        /**
+         * TeamData.name comes from get_teams and the name on a Fixture comes from get_events,
+         * and they disagree — live data had "Manchester United" against "Manchester Utd". When
+         * the venue side was decided on names, that mismatch inverted it and the prompt told
+         * the model the team was "away at" itself.
+         */
+        @Test
+        void decidesTheVenueSideOnIdsNotNames() {
+            Fixture home = TestFixtures.upcomingFixture()
+                    .homeTeam(TestFixtures.team(TEAM_ID, "Liverpool FC", "Arne Slot"))
+                    .awayTeam(TestFixtures.awayTeam())
+                    .build();
+
+            assertThat(builder(Perspective.NEUTRAL, team(), List.of(), home, List.of()))
+                    .contains("at home to Everton")
+                    .doesNotContain("away at");
+        }
+
         @Test
         void carriesTheCoach() {
             assertThat(promptFor(Perspective.FAN)).contains("Coach: Arne Slot");

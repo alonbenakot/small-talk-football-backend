@@ -15,8 +15,8 @@ import java.util.Optional;
  * <ol>
  *   <li><b>an injured regular</b> — the most conversation-worthy fact a squad holds, and the
  *       one a casual fan is least likely to know;</li>
- *   <li><b>a league scoring-charts place</b> from {@code get_topscorers}, best rank first —
- *       "third in the scoring charts" sounds like real knowledge;</li>
+ *   <li><b>a top-five league scoring-charts place</b> from {@code get_topscorers}, best rank first —
+ *       "third in the scoring charts" sounds like real knowledge, "sixteenth" does not;</li>
  *   <li><b>a standout contribution</b> — clearly ahead of the rest of the squad, not merely
  *       top of it. A leading scorer with three in twenty is not carrying anyone.</li>
  * </ol>
@@ -31,6 +31,15 @@ final class PromptPlayerSelection {
     /** A standout must beat the next best by this much, or score at the rate below. */
     private static final double STANDOUT_MULTIPLE = 1.5;
     private static final double STANDOUT_RATE_PER_APPEARANCE = 0.5;
+
+    /**
+     * How far down the scoring charts still counts as worth saying out loud. {@code
+     * get_topscorers} ranks the whole league, so a place is not in itself a distinction —
+     * live output had a one-goal defender at 49th and one-goal forwards at 10th and 16th,
+     * which produced limp lines like "already on the league scoring charts". Top five is
+     * roughly where the fact starts sounding like knowledge rather than trivia.
+     */
+    private static final int MAX_LEAGUE_SCORER_RANK = 5;
 
     private PromptPlayerSelection() {
     }
@@ -67,6 +76,7 @@ final class PromptPlayerSelection {
     private static List<PlayerData> leagueScorers(List<PlayerData> players) {
         return players.stream()
                 .filter(player -> player.getLeagueScorerRank() != null)
+                .filter(player -> player.getLeagueScorerRank() <= MAX_LEAGUE_SCORER_RANK)
                 .sorted(Comparator.comparingInt(PlayerData::getLeagueScorerRank))
                 .toList();
     }

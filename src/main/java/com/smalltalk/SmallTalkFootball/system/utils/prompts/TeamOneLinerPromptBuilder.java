@@ -130,7 +130,7 @@ public class TeamOneLinerPromptBuilder implements PromptBuilder {
                 PromptPhrasing.phraseStanding(name, team, context.competition()),
                 phraseHomeAwaySplit(team),
                 PromptPhrasing.phraseRecentForm(context.recentForm()),
-                phraseNextFixture(name),
+                phraseNextFixture(),
                 phrasePlayers());
     }
 
@@ -146,12 +146,20 @@ public class TeamOneLinerPromptBuilder implements PromptBuilder {
         return "%dW %dD %dL".formatted(nz(record.getWins()), nz(record.getDraws()), nz(record.getLosses()));
     }
 
-    private String phraseNextFixture(String name) {
+    /**
+     * Home or away is decided on team ids, never names: {@code TeamData.name} and the name on
+     * a {@code Fixture} come from different apifootball endpoints and disagree ("Manchester
+     * United" vs "Manchester Utd"). A name comparison silently inverts the venue and then
+     * names the team as its own opponent.
+     */
+    private String phraseNextFixture() {
         Fixture next = context.nextFixture();
         if (next == null) {
             return "  No upcoming fixture scheduled.";
         }
-        boolean atHome = next.getHomeTeam() != null && name.equals(next.getHomeTeam().getName());
+        String teamId = context.team().getId();
+        boolean atHome = next.getHomeTeam() != null && teamId != null
+                && teamId.equals(next.getHomeTeam().getId());
         String opponent = atHome
                 ? nameOf(next.getAwayTeam())
                 : nameOf(next.getHomeTeam());
