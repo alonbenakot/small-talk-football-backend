@@ -111,7 +111,8 @@ live-key check. See the Phase 3 handoff notes at the end of this document.
 
 ### Phase 4 — Operations and tuning (steps 8–9) — ✅ DONE (2026-09-09)
 
-8. ✅ `TeamsJob` on a daily cron for the squad refresh (§4.7).
+8. ✅ `TeamsJob` on a twice-weekly cron for the squad refresh (§4.7 — planned daily, cut to Monday and Thursday
+   after Phase 4; see the note below).
    - **Tests:** none beyond asserting the job delegates — the existing jobs carry no tests either, and a cron
      expression is not meaningfully testable here.
 9. Manual smoke against a real database and a real OpenAI key. Read actual output for all three perspectives and
@@ -398,8 +399,13 @@ public class PlayerData {
 only refreshes standings). Squad stats (`player_goals`, `player_injured`, `player_rating`) change weekly, so
 without a job the "notable players" data goes stale and the one-liners get subtly wrong.
 
-Add `TeamsJob` alongside the other two in `services/jobs`, on a daily cron in `Asia/Jerusalem`, calling
-`saveCompetitionTeams()`. One `get_teams` call per competition per day: 7 calls.
+Add `TeamsJob` alongside the other two in `services/jobs`, on a cron in `Asia/Jerusalem`, calling
+`saveCompetitionTeams()`.
+
+> **Superseded after Phase 4.** This was written as a daily job. It ships as **Monday and Thursday at 04:00**
+> (`0 0 4 * * MON,THU`) — the rounds fall at the weekend and midweek, so those two runs pick up each of them, and
+> it cuts the API spend by about 70% against daily. Injury data is then at most three or four days old, which is
+> the freshness that actually matters: the one-liner names an injured regular ahead of every other fact.
 
 ### 4.8 Considered and deferred: `get_news`
 `get_news` accepts `team_id` and returns `title`, `content`, `published_at`, `sources` — on paper the ideal source
@@ -691,7 +697,7 @@ for the first time, so it must become a `NotFoundException` (404) as part of thi
    mode, and a needling sentence about a team with nothing wrong with it is simply a mild one. This keeps the
    perspective honest rather than silently swapping voices behind the user's back, and it removes a threshold
    nobody would be able to tune.
-2. **API budget** — hundreds of calls a day available. The daily `TeamsJob` (7 `get_teams`) plus `get_topscorers`
+2. **API budget** — hundreds of calls a day available. The twice-weekly `TeamsJob` (7 `get_teams`) plus `get_topscorers`
    (7) on the standings cadence is comfortably inside that alongside `FixturesJob` and `StandingsJob`.
 3. **Player id stability** — assumed stable, consistent with fixture and team ids in this API. `PlayerData` is
    keyed on `player_id` with no composite fallback.
@@ -1105,7 +1111,7 @@ Summary of what changed and what Phase 4 needs to know.
 
 ### Where Phase 4 starts
 
-Step 8: `services/jobs/TeamsJob` on a daily `Asia/Jerusalem` cron calling `teamDataService.saveCompetitionTeams()`
+Step 8: `services/jobs/TeamsJob` on an `Asia/Jerusalem` cron calling `teamDataService.saveCompetitionTeams()`
 (§4.7), alongside the existing `FixturesJob` and `StandingsJob`. No tests beyond asserting it delegates.
 
 Step 9 is the one that makes the feature good, and it is where three owed verifications should be done in the
@@ -1133,17 +1139,21 @@ code fixes, one tuning change, and the verification of everything Phases 2 and 3
 
 ### Step 8 — `TeamsJob`
 
-- `services/jobs/TeamsJob.java` — `@Component`, `@RequiredArgsConstructor`, one `@Scheduled(cron = "0 0 4 * * *",
+- `services/jobs/TeamsJob.java` — `@Component`, `@RequiredArgsConstructor`, one `@Scheduled(cron = "0 0 4 * * MON,THU",
   zone = "Asia/Jerusalem")` method calling `teamDataService.saveCompetitionTeams()` and logging on completion,
   matching `FixturesJob`'s shape.
-- **Why 04:00.** It is the only hour that collides with nothing else: `FixturesJob` runs at 07:00, 20:00, 21:00,
+- **Why Monday and Thursday at 04:00.** The cadence is the owner's call, taken after Phase 4: `POST /teams` had
+  always been a twice-a-year transfer-window operation, and a daily job was a real change in what it costs. Monday
+  picks up the weekend round and Thursday the midweek one, which is where the squad numbers actually move, and it
+  spends about 70% fewer calls than daily. Weekly was rejected as too stale — injury news is the most
+  conversation-worthy fact the card holds. **Why 04:00:** it is the only hour that collides with nothing else: `FixturesJob` runs at 07:00, 20:00, 21:00,
   23:30 and 00:30, and `StandingsJob` at 00:30, 19:00 and 21:00. A squad refresh overlapping a fixture write
   would have both jobs touching `TeamData`. Keep that separation if the cron ever moves.
 - `services/jobs/TeamsJobTest` (1) — the delegation assertion, plus `verifyNoMoreInteractions`. It is the first
   test under `services/jobs`; the other two jobs still have none.
 - **`saveCompetitionTeams` takes about eleven minutes.** The live `POST /teams` returned 201 after **655
   seconds**. The cause is `TeamDataService.savePlayers`, which issues one `mongoTemplate.save` per player — some
-  5,500 round-trips to Atlas. It is survivable for a nightly job at 04:00 but it is the obvious candidate for a
+  5,500 round-trips to Atlas. It is survivable for an overnight job but it is the obvious candidate for a
   bulk write, and it would be intolerable if the squad refresh ever needed to run on demand.
 
 ### Step 9 — what the live smoke found
@@ -1229,7 +1239,7 @@ scheduled ingestion that fills the collections, and the single request that turn
 | Job | Cron (`Asia/Jerusalem`) | Calls | Writes |
 |---|---|---|---|
 | `FixturesJob` | 07:00, 20:00, 21:00, 23:30, 00:30 | `get_events` per `Competition` | `fixture` |
-| `TeamsJob` | 04:00 (added in Phase 4) | `get_teams` + `get_topscorers` per `Competition` | `teamData`, `playerData` |
+| `TeamsJob` | Mon + Thu 04:00 (added in Phase 4) | `get_teams` + `get_topscorers` per `Competition` | `teamData`, `playerData` |
 | `StandingsJob` | 00:30, 19:00, 21:00 | `get_standings` per `Competition` | `teamData.standings` |
 
 Each is also exposed as an admin endpoint (`POST /fixtures`, `POST /teams`, `PATCH /teams/standings`) for manual

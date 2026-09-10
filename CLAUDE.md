@@ -85,9 +85,16 @@ competition here automatically widens fixture, standings, and team fetching, sin
 
 ### Scheduled jobs
 
-`FixturesJob` and `StandingsJob` (`services/jobs`) run on cron expressions in the `Asia/Jerusalem` zone;
-`@EnableScheduling`/`@EnableAsync` are on the application class. The same work is also exposed manually as
+`FixturesJob`, `StandingsJob` and `TeamsJob` (`services/jobs`) run on cron expressions in the `Asia/Jerusalem`
+zone; `@EnableScheduling`/`@EnableAsync` are on the application class. The same work is also exposed manually as
 admin-only endpoints (`POST /fixtures`, `POST /teams`, `PATCH /teams/standings`).
+
+`TeamsJob` runs Monday and Thursday at 04:00 and refreshes far more than its name suggests: `saveCompetitionTeams`
+rewrites every team's name, coach, crest, venue and founding year **and the whole `playerData` collection** —
+roughly 5,500 players with their goals, ratings and injury flags. That is why it is not a transfer-window
+operation: the team one-liner names an injured regular ahead of every other fact, so a stale `player_injured`
+produces confidently wrong sentences. The hours are deliberately disjoint from the other two jobs so that no two
+of them write `TeamData` at once.
 
 ### AI one-liners
 
