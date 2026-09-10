@@ -4,11 +4,13 @@ import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.Language;
+import com.smalltalk.SmallTalkFootball.enums.Perspective;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.HeadToHeadData;
 import com.smalltalk.SmallTalkFootball.models.dto.HeadToHeadResponse;
 import com.smalltalk.SmallTalkFootball.services.FootballApiService;
 import com.smalltalk.SmallTalkFootball.services.TeamDataService;
+import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,7 +34,7 @@ public class PromptBuilderFactory {
         this.teamDataService = teamDataService;
     }
 
-    public PromptBuilder create(Fixture fixture, TeamType teamType, Language language) {
+    public PromptBuilder create(Fixture fixture, TeamType teamType, Language language) throws SmallTalkException {
         if (fixture.getCompetition() == Competition.WORLD_CUP) {
             fixture.getHomeTeam().setCoach(null);
             fixture.getAwayTeam().setCoach(null);
@@ -54,6 +56,15 @@ public class PromptBuilderFactory {
         TeamData awayTeamData = teamDataService.getTeamById(awayTeamId);
 
         return new UpcomingFixtureOneLinerPromptBuilder(fixture, teamType, language, headToHeadData, homeTeamData, awayTeamData);
+    }
+
+    /**
+     * The team-flavoured variant. Everything it needs is already gathered by the caller, so
+     * unlike the fixture overload this fetches nothing — it exists here only so prompt
+     * variants stay in one place.
+     */
+    public PromptBuilder create(TeamPromptContext context, Language language, Perspective perspective) {
+        return new TeamOneLinerPromptBuilder(context, language, perspective);
     }
 
 }

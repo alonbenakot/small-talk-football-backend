@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
@@ -11,18 +12,19 @@ import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.mongodb.core.BulkOperations;
+import org.springframework.data.mongodb.core.FindAndReplaceOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -38,22 +40,29 @@ public class TeamDataService {
 
     private final Mapper<TeamDataDto, Update> teamDataUpdateMapper;
 
+    private final Mapper<TeamDataDto, List<PlayerData>> playerDataMapper;
+
     public TeamDataService(
             TeamDataRepository repository,
             MongoTemplate mongoTemplate,
             FootballApiService service,
             @Qualifier("standingMapper") Mapper<StandingsDtoItem, Standing> competitionRatingMapper,
-            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper) {
+            @Qualifier("teamDataUpdateMapper") Mapper<TeamDataDto, Update> teamDataUpdateMapper,
+            @Qualifier("playerDataMapper") Mapper<TeamDataDto, List<PlayerData>> playerDataMapper) {
         this.repository = repository;
         this.service = service;
         this.standingMapper = competitionRatingMapper;
         this.teamDataUpdateMapper = teamDataUpdateMapper;
+        this.playerDataMapper = playerDataMapper;
         this.mongoTemplate = mongoTemplate;
     }
 
     public void saveCompetitionTeams() {
 
         Arrays.stream(Competition.values()).forEach(competition -> {
+
+            Map<String, Integer> scorerRankByPlayerId = leagueScorerRanks(competition);
+
             service.getTeamDataList(competition).forEach(teamDto -> {
 
                 Query query = Query.query(Criteria.where("_id").is(teamDto.getTeamKey()));
@@ -63,9 +72,69 @@ public class TeamDataService {
                         .setOnInsert("standings", new EnumMap<>(Competition.class));
 
                 mongoTemplate.upsert(query, update, TeamData.class);
+
+                savePlayers(teamDto, scorerRankByPlayerId);
             });
 
         });
+    }
+
+    public TeamData save(TeamData team) {
+        return repository.save(team);
+    }
+
+    /**
+     * A player_id → league-scoring-charts place map for one competition, from
+     * {@code get_topscorers}. {@code player_key} in that response is the same identifier as
+     * {@code player_id} in {@code get_teams}, so it keys straight onto the stored player.
+     */
+    private Map<String, Integer> leagueScorerRanks(Competition competition) {
+        Map<String, Integer> ranks = new HashMap<>();
+        service.getTopScorers(competition).forEach(scorer -> {
+            Integer place = parsePlace(scorer.getPlayerPlace());
+            if (scorer.getPlayerKey() != null && place != null) {
+                ranks.putIfAbsent(scorer.getPlayerKey(), place);
+            }
+        });
+        return ranks;
+    }
+
+    /**
+     * One bulk write per team rather than one round-trip per player. A full refresh covers some
+     * 5,500 players, and saving them one at a time made the run take eleven minutes against a
+     * hosted database — almost all of it latency, since the whole job makes only fourteen calls
+     * to apifootball.
+     * <p>
+     * A replace on {@code _id} is what {@code save} already did, so the write itself is
+     * unchanged. The empty check matters: national teams come back with no squad at all, and
+     * {@code execute()} rejects a bulk holding no operations.
+     */
+    private void savePlayers(TeamDataDto teamDto, Map<String, Integer> scorerRankByPlayerId) {
+        List<PlayerData> players = playerDataMapper.map(teamDto);
+        if (players.isEmpty()) {
+            return;
+        }
+
+        BulkOperations bulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, PlayerData.class);
+        players.forEach(player -> {
+            player.setLeagueScorerRank(scorerRankByPlayerId.get(player.getId()));
+            bulk.replaceOne(
+                    Query.query(Criteria.where("_id").is(player.getId())),
+                    player,
+                    FindAndReplaceOptions.options().upsert());
+        });
+        bulk.execute();
+    }
+
+    private static Integer parsePlace(String place) {
+        if (place == null || place.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(place.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public void refreshStandings() {
@@ -97,9 +166,14 @@ public class TeamDataService {
         return repository.findAll();
     }
 
-    public TeamData getTeamById(String id) {
+    /**
+     * Throws a {@link NotFoundException} (404) rather than an IllegalStateException: the team
+     * id became user-supplied with the team one-liner route, so an unknown one has to reach
+     * the ControllerAdvice as a 404 instead of a bare 500.
+     */
+    public TeamData getTeamById(String id) throws NotFoundException {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalStateException("TeamData not found for id: " + id));
+                .orElseThrow(() -> new NotFoundException(Messages.NO_TEAM_FOUND.formatted(id)));
     }
 
     public Fixture enrichTeamsData(Fixture fixture, List<TeamData> teamDataList) {

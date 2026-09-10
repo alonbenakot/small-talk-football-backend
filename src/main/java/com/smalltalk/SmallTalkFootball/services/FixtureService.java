@@ -9,6 +9,7 @@ import com.smalltalk.SmallTalkFootball.repositories.FixtureRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -69,6 +71,31 @@ public class FixtureService {
 
     public Fixture getFixture(String id) throws SmallTalkException {
         return repo.findById(id).orElseThrow(() -> new SmallTalkException("Invalid fixture id"));
+    }
+
+    /**
+     * The team's most recent finished fixtures, newest first. The depth available is exactly
+     * the retention window ({@code MAX_MATCH_DAYS}, 30 in production) because
+     * {@link #deleteOldFixtures} prunes against the same value — so lowering that env var
+     * quietly shortens the form line, which is why the thin case is logged.
+     */
+    public List<Fixture> getRecentFinishedForTeam(String teamId, int limit) {
+        List<Fixture> finished = repo.findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(
+                teamId, teamId, Sort.by(Sort.Direction.DESC, "matchDateTime"));
+
+        if (finished.size() < 2) {
+            log.warn("Only {} finished fixture(s) in the retention window for team {}", finished.size(), teamId);
+        }
+
+        return finished.stream().limit(limit).toList();
+    }
+
+    /** The team's next scheduled fixture, or empty when nothing is in the window. */
+    public Optional<Fixture> getNextFixtureForTeam(String teamId) {
+        return repo.findByFinishedFalseAndHomeTeamIdOrFinishedFalseAndAwayTeamId(
+                        teamId, teamId, Sort.by(Sort.Direction.ASC, "matchDateTime"))
+                .stream()
+                .findFirst();
     }
 
     private List<Fixture> fetchNewFixtures(LocalDate earliestMatchDay, LocalDate latestMatchDay) {

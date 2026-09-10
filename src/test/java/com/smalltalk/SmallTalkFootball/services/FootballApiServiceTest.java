@@ -93,6 +93,42 @@ class FootballApiServiceTest {
     }
 
     @Test
+    void sendsTheApiKeyAndActionForTopScorers() {
+        server.expect(requestTo(containsString("APIkey=" + API_KEY)))
+                .andExpect(requestTo(containsString("action=get_topscorers")))
+                .andExpect(requestTo(containsString("league_id=152")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        service.getTopScorers(Competition.PREMIER_LEAGUE);
+
+        server.verify();
+    }
+
+    @Test
+    void bindsTopScorerFieldNames() {
+        respondWith("""
+                [{"player_place":"1","player_name":"Erling Haaland","player_key":"659972248",
+                  "team_name":"Manchester City","team_key":"80","goals":"8","assists":"0","penalty_goals":"1"}]
+                """);
+
+        List<TopScorerItem> scorers = service.getTopScorers(Competition.PREMIER_LEAGUE);
+
+        assertThat(scorers).hasSize(1);
+        assertThat(scorers.get(0).getPlayerPlace()).isEqualTo("1");
+        assertThat(scorers.get(0).getPlayerKey()).isEqualTo("659972248");
+        assertThat(scorers.get(0).getTeamKey()).isEqualTo("80");
+        assertThat(scorers.get(0).getGoals()).isEqualTo("8");
+        assertThat(scorers.get(0).getPenaltyGoals()).isEqualTo("1");
+    }
+
+    @Test
+    void returnsAnEmptyTopScorerListWhenTheApiFails() {
+        respondWith(HttpStatus.INTERNAL_SERVER_ERROR, "{\"error\":\"boom\"}");
+
+        assertThat(service.getTopScorers(Competition.PREMIER_LEAGUE)).isEmpty();
+    }
+
+    @Test
     void bindsCompetitionFieldNames() {
         respondWith("""
                 [{"league_id":"152","league_name":"Premier League","league_logo":"pl.png",

@@ -41,9 +41,9 @@ class OneLinersServiceTest {
     private OneLinersService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         service = new OneLinersService(fixtureService, aiService, promptBuilderFactory);
-        lenient().when(promptBuilderFactory.create(any(), any(), any())).thenReturn(promptBuilder);
+        lenient().when(promptBuilderFactory.create(any(Fixture.class), any(), any())).thenReturn(promptBuilder);
         lenient().when(promptBuilder.buildPrompt()).thenReturn("a prompt");
         lenient().when(aiService.generate(anyString())).thenReturn(GENERATED);
     }
