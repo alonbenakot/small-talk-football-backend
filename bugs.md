@@ -20,6 +20,7 @@ are marked "by inspection" because nothing automated covers them.
 | 8 | Low | One malformed league id aborts a whole refresh |
 | 9 | Low | Builder-made `Fixture` cannot accept a one-liner |
 | 10 | Low | Expired tokens throw instead of validating to `false` |
+| 11 | Medium | A player who leaves the tracked leagues is never deleted |
 
 ---
 
@@ -259,6 +260,39 @@ answers 401, so today's behaviour is correct — but any new caller has to know 
 to something that does not read as a total predicate.
 
 ---
+
+---
+
+## 11. A player who leaves the tracked leagues is never deleted — Medium *(by inspection, not covered by a test)*
+
+**Where:** `services/TeamDataService.java`, `savePlayers`, reached from `saveCompetitionTeams`
+
+```java
+BulkOperations bulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, PlayerData.class);
+players.forEach(player -> bulk.replaceOne(...upsert...));   // writes the current squad
+bulk.execute();                                             // nothing removes anyone else
+```
+
+**What happens:** `playerData` only ever grows. The refresh writes whatever squad `get_teams` returns and never
+reconciles that against the players already stored for the team, so a departed player keeps his `teamId` and his
+final stats forever. `PlayerDataService.getNotablePlayers` selects on having played, which a stale document
+still satisfies, so a player who left in the summer can be named in his old club's card and in the sentence the
+model writes from it.
+
+**Why it is only Medium:** a move *between* two tracked leagues corrects itself, because the new club's squad
+rewrites the same `_id` with a new `teamId`. The damage is limited to players who leave the tracked leagues
+entirely — a transfer abroad, a retirement, a release — and to a squad that shrinks between refreshes. It grows
+with every transfer window rather than all at once.
+
+**Not covered by a test.** `TeamDataServiceTest.SavingTeams` asserts what *is* written; nothing asserts what
+should have been removed, because today nothing is.
+
+**Suggested fix:** In `savePlayers`, collect the ids of the squad just written and add one
+`bulk.remove(Query.query(where("teamId").is(teamId).and("_id").nin(writtenIds)))` to the same bulk. It rides
+along with the write that is already there, stays atomic per team, and costs no extra round-trip. Careful with
+the empty-squad case: a national team legitimately returns no players, and deleting on an empty response would
+wipe a squad whenever the API has a bad day — so skip the removal, as the write is already skipped, rather than
+treating "no players" as "everyone left".
 
 ## Security posture
 

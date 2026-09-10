@@ -16,6 +16,8 @@ import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.mongodb.core.BulkOperations;
+import org.springframework.data.mongodb.core.FindAndReplaceOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -97,11 +99,31 @@ public class TeamDataService {
         return ranks;
     }
 
+    /**
+     * One bulk write per team rather than one round-trip per player. A full refresh covers some
+     * 5,500 players, and saving them one at a time made the run take eleven minutes against a
+     * hosted database — almost all of it latency, since the whole job makes only fourteen calls
+     * to apifootball.
+     * <p>
+     * A replace on {@code _id} is what {@code save} already did, so the write itself is
+     * unchanged. The empty check matters: national teams come back with no squad at all, and
+     * {@code execute()} rejects a bulk holding no operations.
+     */
     private void savePlayers(TeamDataDto teamDto, Map<String, Integer> scorerRankByPlayerId) {
-        playerDataMapper.map(teamDto).forEach(player -> {
+        List<PlayerData> players = playerDataMapper.map(teamDto);
+        if (players.isEmpty()) {
+            return;
+        }
+
+        BulkOperations bulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, PlayerData.class);
+        players.forEach(player -> {
             player.setLeagueScorerRank(scorerRankByPlayerId.get(player.getId()));
-            mongoTemplate.save(player);
+            bulk.replaceOne(
+                    Query.query(Criteria.where("_id").is(player.getId())),
+                    player,
+                    FindAndReplaceOptions.options().upsert());
         });
+        bulk.execute();
     }
 
     private static Integer parsePlace(String place) {

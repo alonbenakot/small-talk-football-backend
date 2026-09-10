@@ -12,6 +12,7 @@ import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
 import com.smalltalk.SmallTalkFootball.models.dto.TopScorerItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import org.springframework.data.mongodb.core.BulkOperations;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.testsupport.TestFixtures;
@@ -258,6 +259,8 @@ class TeamDataServiceTest {
 
         private TeamDataDto premierLeagueTeam;
 
+        private BulkOperations bulk;
+
         @BeforeEach
         void onlyPremierLeagueReturnsData() {
             premierLeagueTeam = mock(TeamDataDto.class);
@@ -267,10 +270,19 @@ class TeamDataServiceTest {
             when(apiService.getTeamDataList(Competition.PREMIER_LEAGUE)).thenReturn(List.of(premierLeagueTeam));
             when(apiService.getTopScorers(any())).thenReturn(List.of());
             when(teamDataUpdateMapper.map(premierLeagueTeam)).thenReturn(new Update());
+
+            bulk = mock(BulkOperations.class);
+        }
+
+        /** Only the tests that actually write a squad stub the bulk, so strict stubbing stays useful. */
+        private void expectABulkWrite() {
+            when(mongoTemplate.bulkOps(any(), eq(PlayerData.class))).thenReturn(bulk);
+            when(bulk.replaceOne(any(), any(), any())).thenReturn(bulk);
         }
 
         @Test
         void upsertsTheTeamAndWritesEverySquadMember() {
+            expectABulkWrite();
             when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
                     PlayerData.builder().id("p1").teamId("80").build(),
                     PlayerData.builder().id("p2").teamId("80").build()));
@@ -278,11 +290,30 @@ class TeamDataServiceTest {
             service.saveCompetitionTeams();
 
             verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
-            verify(mongoTemplate, times(2)).save(any(PlayerData.class));
+            verify(bulk, times(2)).replaceOne(any(), any(PlayerData.class), any());
+            verify(bulk).execute();
+        }
+
+        /**
+         * The squad is written in one bulk per team instead of one round-trip per player,
+         * which took eleven minutes across a full refresh. A national team comes back with no
+         * squad at all, and execute() rejects a bulk holding no operations - so an empty squad
+         * has to skip the bulk entirely rather than send an empty one.
+         */
+        @Test
+        void writesNothingForATeamWithNoSquad() {
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of());
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
+            verify(mongoTemplate, never()).bulkOps(any(), eq(PlayerData.class));
+            verify(bulk, never()).execute();
         }
 
         @Test
         void backfillsTheLeagueScorerRankOntoTheMatchingPlayer() {
+            expectABulkWrite();
             TopScorerItem scorer = mock(TopScorerItem.class);
             when(scorer.getPlayerKey()).thenReturn("p1");
             when(scorer.getPlayerPlace()).thenReturn("3");
@@ -294,7 +325,7 @@ class TeamDataServiceTest {
 
             service.saveCompetitionTeams();
 
-            verify(mongoTemplate, times(2)).save(savedPlayer.capture());
+            verify(bulk, times(2)).replaceOne(any(), savedPlayer.capture(), any());
             assertThat(savedPlayer.getAllValues())
                     .filteredOn(player -> player.getId().equals("p1"))
                     .allMatch(player -> player.getLeagueScorerRank() == 3);

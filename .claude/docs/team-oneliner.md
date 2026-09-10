@@ -1280,28 +1280,49 @@ telling the model a team was away at itself.
 
 ---
 
-## Suggested next work — the eleven-minute squad refresh
+## The eleven-minute squad refresh — fixed
 
-Not implemented; recorded here for whoever picks it up.
+`TeamDataService.saveCompetitionTeams` took **655 seconds** in the Phase 4 smoke. Almost none of that was
+apifootball: the whole run makes fourteen HTTP calls, a `get_teams` and a `get_topscorers` per competition. The
+cost was the database — `savePlayers` issued one `mongoTemplate.save` per player, roughly 5,500 sequential
+round-trips to a hosted MongoDB at about 120 ms each.
 
-`TeamDataService.saveCompetitionTeams` took **655 seconds** in the Phase 4 smoke. Almost none of that is
-apifootball: the whole run makes 14 HTTP calls (a `get_teams` and a `get_topscorers` per competition). The cost
-is the database — `savePlayers` issues one `mongoTemplate.save` per player, roughly 5,500 sequential round-trips
-to Atlas at about 120 ms each, plus one upsert per team on top.
+**What changed.** `savePlayers` now builds one unordered `BulkOperations` per team, adds a `replaceOne` with
+upsert per player, and executes it once. That turns ~5,500 round-trips into ~250. A replace on `_id` is exactly
+what `save` already did, so the write itself is unchanged — no mapper, document shape or endpoint moved, and the
+change is contained to one private method.
 
-**The suggestion: batch the writes per team with `BulkOperations`.** `mongoTemplate.bulkOps(BulkMode.UNORDERED,
-PlayerData.class)`, one `replaceOne` with upsert per player, executed once per team, turns ~5,500 round-trips
-into ~250. The semantics are unchanged — a replace on `_id` is exactly what `save` already does — so no mapper,
-no document shape and no test needs to move; it is a change contained to one private method. The `teamData`
-upserts could join the same pattern for a second, smaller win. That should bring the run into the low tens of
-seconds, dominated by the API calls rather than the database.
+**Measured, not predicted.** A live `POST /teams` against the same cluster returned 201 in **75 seconds**, down
+from 655 — a little under nine times faster. The data was verified afterwards: 5,510 players, 248 carrying a
+`leagueScorerRank`, 254 teams with 202 venues, and the cached one-liners on an already-generated team still in
+place, since the team `Update` does not touch `oneLiners`.
 
-Two cheaper alternatives, both worse: parallelising the saves keeps the same 5,500 round-trips and just spends
-connections to hide them, and diffing against stored players to skip unchanged rows adds a read per player to
-avoid a write. Neither is worth it while a bulk write is this contained.
+Where the remaining 75 seconds go: about 11 in apifootball (fourteen calls at roughly 0.8 s each) and the rest
+still in the database. The job now makes about 508 round-trips — one `upsert` per team plus one bulk `execute`
+per team — at the same ~125 ms each. **The next win, if it is ever wanted, is to widen the scope from per-team to
+per-competition:** one `BulkOperations` per competition carrying both the team upserts and every squad in it
+would leave roughly fourteen round-trips and put the run in the fifteen-second range, dominated by the API. It
+was not done here because per-team batching is where the two-orders-of-magnitude gain was, and per-competition
+batching makes a single bad row fail a whole league's write rather than one club's.
 
-**Why bother, given it runs at 04:00.** Three reasons. It makes the *manual* `POST /teams` usable — eleven
-minutes is long enough that an operator assumes it hung, which is exactly what happened during the smoke. It
-keeps a failure cheap to retry. And it is the difference between the squad refresh being something the feature
-could one day do on demand for a single stale team, and something that can only ever run overnight.
+Two things to know about it:
 
+- **An empty squad must skip the bulk entirely.** National teams come back from `get_teams` with no players at
+  all, and `execute()` rejects a bulk holding no operations. `writesNothingForATeamWithNoSquad` pins that.
+- **Failure reporting differs.** An unordered bulk collects failures into a `BulkOperationException` at
+  `execute()` rather than throwing on the offending document, so a bad row now fails that team's batch instead of
+  that one player. For a nightly refresh that is an acceptable trade; it is worth remembering if this is ever
+  called on demand.
+
+`TeamDataServiceTest.SavingTeams` was rewired to verify against a mocked `BulkOperations` instead of counting
+`save` calls. The scorer-rank backfill assertion still captures the written players, just through `replaceOne`.
+
+Rejected alternatives: parallelising the saves keeps the same 5,500 round-trips and only spends connections to
+hide them; diffing against stored players to skip unchanged rows adds a read per player to avoid a write.
+
+**Left undone deliberately: nothing ever deletes a player.** The refresh writes the squad it received and never
+reconciles it against what is already stored, so a player who leaves the tracked leagues keeps his `teamId` and
+stats forever and can still be named on his old club's card. That is recorded as **bug #11 in `bugs.md`**, with
+the suggested fix (a `remove` with an `_id` `$nin` the squad just written, added to the same bulk) and the trap
+that goes with it — an empty `players` array is a normal response for a national team, so treating it as "everyone
+left" would wipe a squad whenever the API has a bad day.
