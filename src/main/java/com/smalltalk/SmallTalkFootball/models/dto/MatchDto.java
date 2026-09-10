@@ -1,9 +1,13 @@
 package com.smalltalk.SmallTalkFootball.models.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 
 public class MatchDto {
+	@JsonProperty("match_awayteam_name")
 	private String matchAwayteamName;
+	@JsonProperty("lineup")
 	private MatchLineup lineup;
 	private String matchDate;
 	private String matchHometeamSystem;
@@ -18,6 +22,7 @@ public class MatchDto {
 	private String matchAwayteamSystem;
 	private String matchStatus;
 	private String matchHometeamScore;
+	@JsonProperty("match_hometeam_name")
 	private String matchHometeamName;
 	private String leagueId;
 	private String teamAwayBadge;

@@ -130,6 +130,28 @@ public final class TestFixtures {
                 .build();
     }
 
+    /**
+     * A team with a filled-in league standing, which is what the team one-liner talks about.
+     */
+    public static TeamData teamDataWithStanding(String id, String name, String coach, Competition competition,
+                                                int position, int points, int played) {
+        TeamData team = teamData(id, name, coach);
+        team.getStandings().put(competition, standing(competition, position, points, played));
+        return team;
+    }
+
+    public static Standing standing(Competition competition, int position, int points, int played) {
+        return Standing.builder()
+                .competition(competition)
+                .position(position)
+                .points(points)
+                .playedMatches(played)
+                .overall(new WinLossDraw(4, 0, 1))
+                .home(new WinLossDraw(3, 0, 0))
+                .away(new WinLossDraw(1, 0, 1))
+                .build();
+    }
+
     public static List<TeamData> bothTeamsData() {
         return List.of(
                 teamData(HOME_TEAM_ID, HOME_TEAM_NAME, "Arne Slot"),

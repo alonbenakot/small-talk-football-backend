@@ -1,6 +1,7 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.Fixture;
+import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
@@ -9,7 +10,10 @@ import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
+import com.smalltalk.SmallTalkFootball.models.dto.TopScorerItem;
 import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
+import org.springframework.data.mongodb.core.BulkOperations;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.testsupport.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +34,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +50,8 @@ class TeamDataServiceTest {
     private Mapper<StandingsDtoItem, Standing> standingMapper;
     @Mock
     private Mapper<TeamDataDto, Update> teamDataUpdateMapper;
+    @Mock
+    private Mapper<TeamDataDto, List<PlayerData>> playerDataMapper;
 
     @Captor
     private ArgumentCaptor<Iterable<TeamData>> savedTeams;
@@ -53,15 +60,16 @@ class TeamDataServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TeamDataService(repository, mongoTemplate, apiService, standingMapper, teamDataUpdateMapper);
+        service = new TeamDataService(repository, mongoTemplate, apiService, standingMapper,
+                teamDataUpdateMapper, playerDataMapper);
     }
 
     @Nested
     class Enrichment {
 
         /**
-         * FixtureAssembler cannot read team names or coaches out of the match feed, so every
-         * fixture arrives here needing them filled in from stored team data.
+         * The match feed can omit team names and coaches (and, for unknown teams, always will),
+         * so enrichment fills in whatever the assembled fixture is still missing from stored team data.
          */
         @Test
         void fillsInTheDetailTheMatchFeedDoesNotProvide() {
@@ -225,7 +233,7 @@ class TeamDataServiceTest {
     class Lookup {
 
         @Test
-        void returnsAStoredTeam() {
+        void returnsAStoredTeam() throws Exception {
             TeamData team = TestFixtures.teamData("2621", "Liverpool", "Arne Slot");
             when(repository.findById("2621")).thenReturn(Optional.of(team));
 
@@ -236,9 +244,94 @@ class TeamDataServiceTest {
         void rejectsAnUnknownTeamId() {
             when(repository.findById("nope")).thenReturn(Optional.empty());
 
+            // A 404, not a 500: the team id is user-supplied through the team one-liner route,
+            // and ControllerAdvice only maps NotFoundException to a not-found response.
             assertThatThrownBy(() -> service.getTeamById("nope"))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(NotFoundException.class)
                     .hasMessageContaining("nope");
+        }
+    }
+
+    @Nested
+    class SavingTeams {
+
+        private final ArgumentCaptor<PlayerData> savedPlayer = ArgumentCaptor.forClass(PlayerData.class);
+
+        private TeamDataDto premierLeagueTeam;
+
+        private BulkOperations bulk;
+
+        @BeforeEach
+        void onlyPremierLeagueReturnsData() {
+            premierLeagueTeam = mock(TeamDataDto.class);
+            when(premierLeagueTeam.getTeamKey()).thenReturn("80");
+
+            when(apiService.getTeamDataList(any())).thenReturn(List.of());
+            when(apiService.getTeamDataList(Competition.PREMIER_LEAGUE)).thenReturn(List.of(premierLeagueTeam));
+            when(apiService.getTopScorers(any())).thenReturn(List.of());
+            when(teamDataUpdateMapper.map(premierLeagueTeam)).thenReturn(new Update());
+
+            bulk = mock(BulkOperations.class);
+        }
+
+        /** Only the tests that actually write a squad stub the bulk, so strict stubbing stays useful. */
+        private void expectABulkWrite() {
+            when(mongoTemplate.bulkOps(any(), eq(PlayerData.class))).thenReturn(bulk);
+            when(bulk.replaceOne(any(), any(), any())).thenReturn(bulk);
+        }
+
+        @Test
+        void upsertsTheTeamAndWritesEverySquadMember() {
+            expectABulkWrite();
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
+                    PlayerData.builder().id("p1").teamId("80").build(),
+                    PlayerData.builder().id("p2").teamId("80").build()));
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
+            verify(bulk, times(2)).replaceOne(any(), any(PlayerData.class), any());
+            verify(bulk).execute();
+        }
+
+        /**
+         * The squad is written in one bulk per team instead of one round-trip per player,
+         * which took eleven minutes across a full refresh. A national team comes back with no
+         * squad at all, and execute() rejects a bulk holding no operations - so an empty squad
+         * has to skip the bulk entirely rather than send an empty one.
+         */
+        @Test
+        void writesNothingForATeamWithNoSquad() {
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of());
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
+            verify(mongoTemplate, never()).bulkOps(any(), eq(PlayerData.class));
+            verify(bulk, never()).execute();
+        }
+
+        @Test
+        void backfillsTheLeagueScorerRankOntoTheMatchingPlayer() {
+            expectABulkWrite();
+            TopScorerItem scorer = mock(TopScorerItem.class);
+            when(scorer.getPlayerKey()).thenReturn("p1");
+            when(scorer.getPlayerPlace()).thenReturn("3");
+            when(apiService.getTopScorers(Competition.PREMIER_LEAGUE)).thenReturn(List.of(scorer));
+
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
+                    PlayerData.builder().id("p1").teamId("80").build(),
+                    PlayerData.builder().id("p2").teamId("80").build()));
+
+            service.saveCompetitionTeams();
+
+            verify(bulk, times(2)).replaceOne(any(), savedPlayer.capture(), any());
+            assertThat(savedPlayer.getAllValues())
+                    .filteredOn(player -> player.getId().equals("p1"))
+                    .allMatch(player -> player.getLeagueScorerRank() == 3);
+            assertThat(savedPlayer.getAllValues())
+                    .filteredOn(player -> player.getId().equals("p2"))
+                    .allMatch(player -> player.getLeagueScorerRank() == null);
         }
     }
 }

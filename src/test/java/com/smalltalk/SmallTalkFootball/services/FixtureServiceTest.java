@@ -10,12 +10,14 @@ import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
 import com.smalltalk.SmallTalkFootball.testsupport.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,8 +29,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -250,6 +251,71 @@ class FixtureServiceTest {
     void deletingAllFixturesClearsTheCollection() {
         service.deleteAllFixtures();
 
+        @Test
+        void asksForFinishedFixturesOnEitherSideOfTheTieNewestFirst() {
+            when(repository.findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(
+                    any(), any(), any(Sort.class))).thenReturn(new ArrayList<>());
+
+            service.getRecentFinishedForTeam("2621", 5);
+
+            verify(repository).findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(
+                    eq("2621"), eq("2621"), sort.capture());
+            assertThat(sort.getValue()).isEqualTo(Sort.by(Sort.Direction.DESC, "matchDateTime"));
+        }
+
+        @Test
+        void trimsTheFormToTheRequestedDepth() {
+            when(repository.findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(
+                    any(), any(), any(Sort.class)))
+                    .thenReturn(new ArrayList<>(List.of(
+                            playedAt("f-1", Instant.parse("2026-03-05T20:00:00Z")),
+                            playedAt("f-2", Instant.parse("2026-03-01T20:00:00Z")),
+                            playedAt("f-3", Instant.parse("2026-02-25T20:00:00Z")))));
+
+            assertThat(service.getRecentFinishedForTeam("2621", 2))
+                    .extracting(Fixture::getId)
+                    .containsExactly("f-1", "f-2");
+        }
+
+        @Test
+        void returnsTheEarliestUnplayedFixtureAsTheNextOne() {
+            Fixture next = TestFixtures.upcomingFixture().id("next").build();
+            when(repository.findByFinishedFalseAndHomeTeamIdOrFinishedFalseAndAwayTeamId(
+                    any(), any(), any(Sort.class)))
+                    .thenReturn(new ArrayList<>(List.of(next, TestFixtures.upcomingFixture().id("later").build())));
+
+            assertThat(service.getNextFixtureForTeam("2621")).contains(next);
+
+            verify(repository).findByFinishedFalseAndHomeTeamIdOrFinishedFalseAndAwayTeamId(
+
         verify(repository).deleteAll();
+    }
+
+    /**
+     * The by-team lookups behind the team one-liner. The derived query names themselves have
+     * no integration coverage here — there are no MongoDB tests in this project and a
+     * mis-resolved nested path returns empty rather than failing — so what these pin is the
+     * service's half: the same id on both sides of the Or, and the sort direction.
+     */
+    @Nested
+    class ByTeamLookups {
+
+        @Captor
+        private ArgumentCaptor<Sort> sort;
+
+        private Fixture playedAt(String id, Instant when) {
+            return TestFixtures.finishedFixture().id(id).matchDateTime(when).build();
+        }
+                    eq("2621"), eq("2621"), sort.capture());
+            assertThat(sort.getValue()).isEqualTo(Sort.by(Sort.Direction.ASC, "matchDateTime"));
+        }
+
+        @Test
+        void reportsNoNextFixtureRatherThanThrowing() {
+            when(repository.findByFinishedFalseAndHomeTeamIdOrFinishedFalseAndAwayTeamId(
+                    any(), any(), any(Sort.class))).thenReturn(new ArrayList<>());
+
+            assertThat(service.getNextFixtureForTeam("2621")).isEmpty();
+        }
     }
 }

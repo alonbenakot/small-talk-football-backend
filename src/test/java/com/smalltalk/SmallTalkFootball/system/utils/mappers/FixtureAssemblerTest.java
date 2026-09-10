@@ -72,45 +72,44 @@ class FixtureAssemblerTest {
     }
 
     @Nested
-    @DisplayName("team name and coach are not populated from the match feed")
-    class UnboundFields {
+    @DisplayName("team name and coach bind from the match feed")
+    class TeamNameAndCoachBinding {
 
         /*
-         * These assert a known gap rather than desirable behaviour. In MatchDto the getters
-         * getMatchHomeTeamName() and getMatchLineup() are named differently from their backing
-         * fields (matchHometeamName, lineup), so Jackson never makes those private fields
-         * visible and they stay null no matter what the payload contains.
-         *
-         * Nothing breaks downstream today because TeamDataService.enrichTeamsData backfills
-         * names and coaches from the get_teams endpoint. These tests pin the current behaviour;
-         * if the DTO is ever fixed they will fail and should be updated, not deleted.
+         * MatchDto, MatchLineup and LineUp carry @JsonProperty with the verbatim snake_case
+         * wire names, so Jackson binds the private fields even though their getters are spelled
+         * differently. Before that fix these fields stayed null and TeamDataService.enrichTeamsData
+         * was load-bearing rather than a fallback; see bugs.md #3. If binding ever regresses these
+         * fail and the DTO annotations are the thing to restore, not these assertions.
          */
 
         @Test
-        void teamNamesAreNullEvenWhenThePayloadHasThem() {
+        void teamNamesBindWhenThePayloadHasThem() {
             Fixture fixture = assembler.assembleFromFullMatch(
                     MatchDtoJson.finishedMatch()
                             .field("match_hometeam_name", "Liverpool")
                             .field("match_awayteam_name", "Everton")
                             .build());
 
-            assertThat(fixture.getHomeTeam().getName()).isNull();
-            assertThat(fixture.getAwayTeam().getName()).isNull();
+            assertThat(fixture.getHomeTeam().getName()).isEqualTo("Liverpool");
+            assertThat(fixture.getAwayTeam().getName()).isEqualTo("Everton");
         }
 
         @Test
-        void coachIsNullEvenWhenTheLineupHasOne() {
+        void coachBindsWhenTheLineupHasOne() {
             Fixture fixture = assembler.assembleFromFullMatch(
                     MatchDtoJson.finishedMatch().withLineup("Arne Slot", "David Moyes").build());
 
-            assertThat(fixture.getHomeTeam().getCoach()).isNull();
-            assertThat(fixture.getAwayTeam().getCoach()).isNull();
+            assertThat(fixture.getHomeTeam().getCoach()).isEqualTo("Arne Slot");
+            assertThat(fixture.getAwayTeam().getCoach()).isEqualTo("David Moyes");
         }
 
         @Test
-        void winnerIsNullBecauseItIsDerivedFromTheUnboundTeamName() {
+        void winnerIsDerivedFromTheNowBoundTeamName() {
             Fixture fixture = assembler.assembleFromFullMatch(
                     MatchDtoJson.finishedMatch()
+                            .field("match_hometeam_name", "Liverpool")
+                            .field("match_awayteam_name", "Everton")
                             .field("match_hometeam_score", "3")
                             .field("match_awayteam_score", "1")
                             .build());
@@ -118,7 +117,7 @@ class FixtureAssemblerTest {
             assertThat(fixture.getScore().getHome()).isEqualTo(3);
             assertThat(fixture.getScore().getAway()).isEqualTo(1);
             assertThat(fixture.getScore().isDraw()).isFalse();
-            assertThat(fixture.getScore().getWinner()).isNull();
+            assertThat(fixture.getScore().getWinner()).isEqualTo("Liverpool");
         }
 
         @Test
