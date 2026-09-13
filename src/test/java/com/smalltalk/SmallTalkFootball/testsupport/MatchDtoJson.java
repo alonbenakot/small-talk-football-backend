@@ -97,6 +97,18 @@ public final class MatchDtoJson {
         return this;
     }
 
+    /**
+     * Sets the scorer and assist ids on the most recently appended goal, on the side that scored
+     * it. apifootball sends {@code ""} for an id it does not know, so null here becomes a blank.
+     */
+    public MatchDtoJson lastGoalIds(String scorerId, String assistId) {
+        ObjectNode goal = (ObjectNode) goalscorer().get(goalscorer().size() - 1);
+        boolean home = !goal.get("home_scorer").asText().isBlank();
+        goal.put(home ? "home_scorer_id" : "away_scorer_id", scorerId == null ? "" : scorerId);
+        goal.put(home ? "home_assist_id" : "away_assist_id", assistId == null ? "" : assistId);
+        return this;
+    }
+
     public MatchDtoJson homeGoal(String time, String scorer, String score) {
         return goal(time, scorer, "", score);
     }

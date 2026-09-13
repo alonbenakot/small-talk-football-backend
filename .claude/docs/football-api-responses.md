@@ -173,9 +173,9 @@ team id/name/score fields, both `_system` fields, `match_stadium`, both badges, 
   values seen in the wild: `"Half Time"`, `"Postponed"`, `"Cancelled"`.
 - `goalscorer[].score` is the running score, normally `"0 - 1"` but **sometimes bracketed** `"[3 - 2]"` — bug #2.
 - **`goalscorer[]` carries player ids** — `home_scorer_id`, `away_scorer_id`, `home_assist_id`,
-  `away_assist_id` — and they are the same identifier as `player_id` in `get_teams`. `GoalscorerItem` does not
-  bind them today; the player one-liner plan should join on these rather than on the free-text names it
-  currently assumes are all there is.
+  `away_assist_id` — and they are the same identifier as `player_id` in `get_teams`. `GoalscorerItem` binds
+  them and `FixtureAssembler` carries them onto `Goal.scorerId` / `Goal.assistId` (a blank `""` lands as null);
+  the player one-liner's recent contributions join on them, never on the free-text names.
 - `lineup[].player_key` is also that player id, as a string here (a number in `get_teams` / `get_topscorers`).
 - `substitutions` is keyed `home` / `away`, but `SubstitutionsDto` declares `homeSubstitutions` /
   `awaySubstitutions`, which the `SNAKE_CASE` strategy maps to `home_substitutions` — so **it never binds**.

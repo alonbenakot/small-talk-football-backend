@@ -27,16 +27,17 @@ final class PlayerAngleSelection {
         EVER_PRESENT,
         /** Plays regularly, no standout number; talk about his role and the club. */
         REGULAR,
-        /** Appearances well below the squad median, but above zero. */
+        /** Appearances well below the squad's busiest player, but above zero. */
         FRINGE,
         /** No appearances at all. */
         UNUSED
     }
 
-    // Starting points, to be tuned from the Phase 4 smoke.
+    // Tuned in the Phase 4 smoke. The share is against the squad's busiest player, not the
+    // median: half a squad never plays, so the median sat at 3-4 and made 3 of 12 a "regular".
     private static final int MAX_LEAGUE_SCORER_RANK = 5;
-    /** A fringe player has fewer than this share of the squad's median appearances. */
-    private static final double FRINGE_SHARE_OF_MEDIAN = 0.5;
+    /** At or above this appearance share a player is a regular; below it he is fringe. */
+    private static final double REGULAR_SHARE = 0.5;
 
     private PlayerAngleSelection() {
     }
@@ -44,7 +45,7 @@ final class PlayerAngleSelection {
     static Angle select(PlayerData player, SquadContext squad) {
         int appearances = player.getMatchesPlayed() == null ? 0 : player.getMatchesPlayed();
 
-        if (player.isInjured() && appearances > 0 && appearances >= squad.medianAppearances()) {
+        if (player.isInjured() && squad.appearanceShare() >= REGULAR_SHARE) {
             return Angle.INJURED;
         }
         if (player.getLeagueScorerRank() != null && player.getLeagueScorerRank() <= MAX_LEAGUE_SCORER_RANK) {
@@ -62,7 +63,7 @@ final class PlayerAngleSelection {
         if (squad.everPresent()) {
             return Angle.EVER_PRESENT;
         }
-        if (appearances < squad.medianAppearances() * FRINGE_SHARE_OF_MEDIAN) {
+        if (squad.appearanceShare() < REGULAR_SHARE) {
             return Angle.FRINGE;
         }
         return Angle.REGULAR;

@@ -17,7 +17,6 @@ import java.util.List;
  * @param everPresent        appearances at or near the squad's maximum
  * @param firstChoiceKeeper  a {@code Goalkeepers} entry with the most appearances of the squad's keepers
  * @param appearanceShare    his appearances against the squad's maximum, 0 when nobody has played
- * @param medianAppearances  the squad median, the line between a regular and a fringe player
  * @param squadSize          how many players the squad holds
  */
 public record SquadContext(boolean leadingScorer,
@@ -25,11 +24,10 @@ public record SquadContext(boolean leadingScorer,
                            boolean everPresent,
                            boolean firstChoiceKeeper,
                            double appearanceShare,
-                           int medianAppearances,
                            int squadSize) {
 
-    // Starting points, to be tuned from the Phase 4 smoke. The contributor thresholds are the
-    // ones PromptPlayerSelection already uses for the team sentence.
+    // Tuned in the Phase 4 smoke. The contributor thresholds are the ones PromptPlayerSelection
+    // already uses for the team sentence.
     static final double STANDOUT_MULTIPLE = 1.5;
     static final double STANDOUT_RATE_PER_APPEARANCE = 0.5;
     static final double EVER_PRESENT_SHARE = 0.9;
@@ -38,14 +36,15 @@ public record SquadContext(boolean leadingScorer,
     public static SquadContext of(PlayerData player, List<PlayerData> squad) {
         int maxAppearances = squad.stream().mapToInt(p -> nz(p.getMatchesPlayed())).max().orElse(0);
         double share = maxAppearances == 0 ? 0 : (double) nz(player.getMatchesPlayed()) / maxAppearances;
+        // Compared by id, not reference: the player and the squad come from separate queries.
+        PlayerData keeper = firstChoiceKeeper(squad);
 
         return new SquadContext(
                 isLeadingScorer(player, squad),
                 isLeadingContributor(player, squad),
                 share >= EVER_PRESENT_SHARE,
-                player == firstChoiceKeeper(squad),
+                keeper != null && keeper.getId().equals(player.getId()),
                 share,
-                medianAppearances(squad),
                 squad.size());
     }
 
@@ -76,11 +75,6 @@ public record SquadContext(boolean leadingScorer,
                 .filter(p -> GOALKEEPERS.equalsIgnoreCase(p.getPosition()))
                 .max(Comparator.comparingInt(p -> nz(p.getMatchesPlayed())))
                 .orElse(null);
-    }
-
-    private static int medianAppearances(List<PlayerData> squad) {
-        List<Integer> appearances = squad.stream().map(p -> nz(p.getMatchesPlayed())).sorted().toList();
-        return appearances.isEmpty() ? 0 : appearances.get(appearances.size() / 2);
     }
 
     private static double contribution(PlayerData player) {

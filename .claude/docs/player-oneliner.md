@@ -19,8 +19,8 @@ than found by scanning team documents.
 > `replaceOne` to a `$set` update so it survives the refresh (§5); **one voice, no perspective** (§3); bug #11
 > is fixed in Phase 1 (§10); the Champions League stat-scope check was run live and the stats are **season-wide** — no
 > per-competition storage needed (§4.2, §12.3); the "wrong coach"
-> caveat inherited from the team plan was itself wrong and is withdrawn (§12.6). A second live smoke is owed once
-> development is finished, because the ingestion write path changes.
+> caveat inherited from the team plan was itself wrong and is withdrawn (§12.6). The second live smoke owed for
+> the ingestion write-path change was run in Phase 4 (`POST /teams`, 78s, cached one-liners intact).
 
 ---
 
@@ -107,7 +107,7 @@ after the underlying stats move.
 ✅ Suite green at 461 tests (+54). The live check of the endpoint is still owed, along with Phase 1's two — see
 the Phase 2 handoff notes at the end of this document.
 
-### Phase 3 — Recent contributions from our own fixtures (step 8)
+### Phase 3 — Recent contributions from our own fixtures (step 8) — ✅ DONE (2026-09-13)
 
 Separable on purpose: the feature is shippable without it, and it touches fixture ingestion.
 
@@ -125,8 +125,10 @@ Separable on purpose: the feature is shippable without it, and it touches fixtur
 
 **Done when:** the suite is green and, against a real database after a `POST /fixtures`, a known scorer's
 recent goals show up in his card while a defender's card shows none.
+✅ Suite green at 470 tests (+9). The live check is still owed, along with the earlier phases' — see the
+Phase 3 handoff notes at the end of this document.
 
-### Phase 4 — Live smoke and tuning (steps 9–10)
+### Phase 4 — Live smoke and tuning (steps 9–10) — ✅ DONE (2026-09-13)
 
 9. **Manual smoke** against a real database and a real OpenAI key, across the full range of player types: a
    league-leading striker, a first-choice goalkeeper, an ever-present centre-back, an injured regular, a fringe
@@ -138,6 +140,8 @@ recent goals show up in his card while a defender's card shows none.
 
 **Done when:** all six player types produce a sentence you would actually say out loud, and none of them makes a
 claim the data does not support.
+✅ Smoked live across twelve players in three languages; suite green at 475 tests (+5). See the Phase 4
+handoff notes at the end of this document for what it found and what is still owed on the data side.
 
 ### Later
 
@@ -349,7 +353,7 @@ read the same numbers.
 database. Each `Fixture` carries a `List<Goal>` with `goalBy`, `assistBy`, `minute`, `penalty` and `teamName`.
 
 **The join is by player id.** `get_events` goalscorer entries carry `home_scorer_id`, `away_scorer_id`,
-`home_assist_id` and `away_assist_id` (see `docs/football-api-responses.md`, `get_events`), and they are the
+`home_assist_id` and `away_assist_id` (see `.claude/docs/football-api-responses.md`, `get_events`), and they are the
 same identifier as `player_id` in `get_teams` — i.e. `PlayerData.id`. Today `GoalscorerItem` does not bind
 them and `Goal` carries only the free-text names, so Phase 3 adds the four fields to the DTO, two nullable
 `scorerId` / `assistId` fields to `Goal`, and maps them in `FixtureAssembler`. After that, a player's recent
@@ -836,7 +840,7 @@ place a stat appears outside the card. Cheaper to leave it out until asked for.
   session reads that section before anything else.
 - Start Phase 1 at step 2 (`savePlayers`); step 1 is already closed.
 - Every apifootball response shape the app uses, with live samples and the traps in each, is in
-  `docs/football-api-responses.md`. Read it instead of making exploratory calls.
+  `.claude/docs/football-api-responses.md`. Read it instead of making exploratory calls.
 
 ---
 
@@ -986,3 +990,186 @@ of the four snapshot fields moves.
   `PlayerPromptContext` and `PlayerFacts`, the join in `PlayerOneLinersService` over the `recentForm` list it
   already fetches, and the contribution lines in the builder's data block.
 - The Phase 1 and Phase 2 changes are **not committed** at the time of writing this section.
+
+---
+
+## Phase 3 handoff notes (for the Phase 4 session)
+
+Phase 3 is complete on `feature/player-oneliner`; the suite is green at **470 tests** (+9). Goals now carry
+the feed's player ids, and a player's recent contributions are joined on them and reach both the prompt and
+the card.
+
+### Step 8 — bind the ids and join on them
+
+- `GoalscorerItem` gained `homeScorerId` / `awayScorerId` / `homeAssistId` / `awayAssistId` as plain fields
+  with getters — **no `@JsonProperty`** was needed, because the `SNAKE_CASE` strategy already maps
+  `homeScorerId` → `home_scorer_id` (the plan's "verbatim `@JsonProperty`" was a precaution for the
+  getter-spelling trap of bug #3, which these fields do not have). `MatchDtoTest.bindsTheGoalscorerIds`
+  pins the binding through the real `apiClient` mapper either way.
+- `Goal` gained nullable `scorerId` / `assistId`; `FixtureAssembler.mapSingleGoal` picks the scoring side's
+  pair and maps the feed's `""` to null via `blankToNull`, so an unattributed goal is a null, never a blank.
+- `models/MatchContribution` is a record (`fixtureId`, `date`, `opponent`, `goals`, `assists`) with a static
+  `of(fixture, playerId, teamId)` that counts the player's goals and assists by id and names the opponent
+  from the player's side of the fixture (home/away decided on team id, as everywhere else). `isEmpty()` is
+  what the service filters on.
+- `PlayerOneLinersService` maps the `recentForm` list it already fetched through `MatchContribution.of` and
+  drops the empty ones — no extra query. The list lands on both `PlayerPromptContext.recentContributions`
+  and `PlayerFacts.recentContributions` (the field §2.1 always showed). Both records gained the field as
+  their **last** component, so every constructor call site changed; the three test helpers that build them
+  were updated.
+- The builder's data block has a new section between "Lead with" and the club block: *"His goals and assists
+  in the club's recent games (most recent first):"* followed by one `  N goals, M assists v Opponent (date)`
+  line per contributing fixture, or `  no goals or assists on record in the last five` when there are none.
+  The empty wording is deliberately an absence of records, not "0 goals" — a fixture ingested before the ids
+  were bound contributes nothing even if he scored in it (§4.4).
+
+### Tests added (9)
+
+`MatchDtoTest.bindsTheGoalscorerIds`; `FixtureAssemblerTest.GoalMapping` ×2 (ids land on `Goal`, a blank id
+lands as null); `PlayerOneLinersServiceTest.RecentContributions` ×4 (per-fixture counts for the right player
+only, opponent named from the player's side, fixtures without ids contribute nothing, contributions reach the
+prompt context); `PlayerOneLinerPromptBuilderTest.DataBlock` ×2 (the lines reach the data block; absence is
+phrased as absence, not zero). Test support: `MatchDtoJson.lastGoalIds(scorerId, assistId)` sets the ids on
+the most recently appended goal on the side that scored it; `TestFixtures.goalById(scorerId, assistId,
+teamType)` builds a `Goal` keyed for the join. `.claude/docs/football-api-responses.md` no longer says the ids are
+unbound.
+
+### Owed to the next session
+
+- **Four live checks**, all needing `MONGODB_URI`, `API_FOOTBALL_KEY` and (for the one-liner ones)
+  `OPENAI_API_KEY` in the shell: Phase 1's two (`POST /teams` timing and `GET /players/teams/2611`), Phase
+  2's cache check (`GET /one-liners/players/{id}?lang=BRITISH` twice, same `generatedAt`; then once more after
+  editing a snapshot field; then a `POST /teams` leaving `oneLiners` in place), and this phase's "done when":
+  after a `POST /fixtures`, a known recent scorer's card carries his goals under `recentContributions` while a
+  defender's carries an empty list. Note that **fixtures already stored before this change have no ids on
+  their goals** and will show nothing until re-fetched — `POST /fixtures` re-fetches only fixtures that are
+  not yet `finished`, so a finished match ingested last week keeps its id-less goals until it ages out of the
+  window. For the smoke, pick a scorer from a match that finished after the ids were deployed, or clear the
+  fixture collection first.
+- Phase 4 is the manual smoke and tuning (steps 9–10). The prompt text — `examples()`, `constraints()`, the
+  angle thresholds in `PlayerAngleSelection` / `SquadContext`, and the new contributions wording — is a
+  starting point; read the real output across the six player types in the phase description and tune from
+  that. Record what the smoke finds in a "Phase 4 handoff notes" section here.
+- The Phase 3 changes are **not committed** at the time of writing this section (Phases 1–2 were committed as
+  `10d3138`).
+
+---
+
+## Phase 4 handoff notes
+
+Phase 4 was run on 2026-09-13 against the owner's database and OpenAI key, with the app started from IntelliJ
+and driven over `localhost:8080` (no credentials entered the session). Twelve players across Manchester City,
+Liverpool and Barcelona, in BRITISH, AMERICAN and HEBREW, covering every angle: league-leading striker
+(Haaland), first-choice keepers (Donnarumma, Mamardashvili) and a backup (Alisson), ever-present centre-back
+(van Dijk), injured regular (Ekitike), injured fringe players (Chiesa, Bardghji), fringe (Nyoni, Lewis), leading
+contributor without a scorer rank (Yamal), and unused (Bettinelli). The suite is green at **475 tests** (+5).
+
+### Live checks closed
+
+- **Phase 1:** `GET /players/teams/80` and `/84` list 24 and 31 players, ordered by position then shirt. The
+  plan's example id `2611` is not a tracked team — it returns an empty list, not an error. Team ids are the
+  apifootball ones (`80` City, `84` Liverpool, `97` Barcelona).
+- **Phase 2:** a second `GET /one-liners/players/659972248?lang=BRITISH` returned the cached sentence with the
+  same `generatedAt` (millisecond-truncated by Mongo — `…53.131454096Z` becomes `…53.131Z`, which is fine
+  because freshness is decided on the snapshot fields, not the timestamp). HEBREW and AMERICAN each produced
+  their own entry without disturbing the BRITISH one.
+- **Phase 1/2/3 admin checks (run later in the session with an admin JWT):** `POST /fixtures?matchDays=7&
+  matchDaysIntoFuture=7` took 9.5s and left 36 of 139 fixtures with scorer ids — only fixtures not yet
+  `finished` are re-fetched, so goals from before Phase 3 stay id-less until they age out (the run also pruned
+  the collection from 271 to 139, which is the window doing its job). `PATCH /teams/standings` took 19s and
+  gave every club a standing. `POST /teams` took **78s** for ~120 teams and ~5,500 players (no earlier timing
+  was recorded to compare against; the time is dominated by the apifootball calls, not the `$set` write), and
+  afterwards Bettinelli's and Haaland's cached sentences still carried their original `generatedAt` — the
+  refresh leaves `oneLiners` alone. Haaland's card then showed `{opponent: Manchester Utd, goals: 1}` from
+  the match that finished that afternoon, Saka's his goal v Sunderland, Yamal's a brace v Levante, and
+  Saliba's (a defender) an empty list — the Phase 3 "done when".
+
+### Defects found and fixed
+
+1. **`firstChoiceKeeper` was always false in production.** `SquadContext.of` compared `player ==
+   firstChoiceKeeper(squad)` by reference, but the service loads the player and the squad in two separate
+   queries, so they are never the same object. Donnarumma (9 apps, 21 saves, the only City keeper who has
+   played) came out `keeper=false` and got the `EVER_PRESENT` angle. Now compared by id; pinned by the new
+   `SquadContextTest`, which deliberately builds the player and the squad entry as separate objects.
+2. **The fringe/injured thresholds compared against the squad median**, which sits at 3–4 in a real squad
+   because half of it has never played — Nyoni on 3 of 12 came out `REGULAR` ("getting a decent look-in").
+   Both now use `appearanceShare` (against the busiest player) with one constant, `REGULAR_SHARE = 0.5`:
+   at or above it an injured player is the "injured regular", below it he is fringe (Chiesa on 5 of 12 was
+   an "injured regular" at 0.4). `SquadContext.medianAppearances` is gone — it was on the wire in
+   `squadContext`, so the card lost that field.
+3. **The empty contributions line was read as zero.** "no goals or assists on record in the last five"
+   produced *"Hasn't had a goal contribution in the last five"* for Haaland, off fixtures that simply
+   carried no ids. The section is now omitted entirely when there is nothing on record, and a constraint
+   forbids attributing him to any particular match unless it is listed.
+4. **The `Lead with:` hints were copied verbatim.** Chiesa's sentence opened *"He is a regular who is currently
+   injured and being missed"* — the hint, word for word. The hints are now topic phrases ("his injury - a
+   regular starter the side is currently without"), and the constraints say to put it in his own words.
+5. **Prompt mechanics leaked**: "40% share of the busiest guy's minutes" and "in a 32-man squad" were the
+   squad line's percentage and size read back. `phraseSquad` now emits only the three flags, or "nothing
+   stands out".
+
+6. **The keeper sentence stated the baseline as news.** *"clearly City's first-choice, nine games already, 21
+   saves…"* — for a keeper, being first choice and playing every game is the expectation, not the story
+   (owner's call). The `KEEPER` hint now says to lead with how busy he is and explicitly not to remark on
+   either; the "first-choice goalkeeper" squad flag is no longer written into the prompt (it still drives
+   angle selection); and example 2 no longer counts his games.
+
+7. **`MatchContribution.isEmpty()` leaked onto the wire** as `"empty": false` — Jackson treats a record's
+   `isX()` as a property. Removed; the service filters inline, and `OneLinerControllerTest` pins the shape.
+
+Also added to the constraints: "Do not describe the nature of an injury or how it happened" — Ekitike's first
+sentence invented "the knock". Items 5 and 6 were made after the last restart and are covered by
+the suite but were **not re-smoked live**; they only remove lines from the data block.
+
+### What the output looks like now
+
+Every player type produced a sentence supported by the data once the fixes above were in. Representative
+(BRITISH unless noted):
+
+- Mamardashvili — *"14 saves already but they've still shipped 10, so he's been properly busy behind Iraola's
+  lot."* (Donnarumma's, before fix 6, led with "clearly City's first-choice, nine games already".)
+- Chiesa — *"barely been involved for Liverpool, just five appearances so far and now he's out injured. He did
+  chip in a goal and looked decent with that 6.9 average before the setback."*
+- Alisson (backup) — *"ticking along, six games and a 7.18, nothing spectacular but steady enough."*
+- Bardghji — *"barely figured, just five outings and one assist before this injury, while Barcelona keep
+  rattling in goals."*
+
+Coach names are correct for the data ("Iraola" at Liverpool, "Flick" at Barcelona are what `TeamData` holds).
+
+### Data-side observations (not code)
+
+- **Standings were empty on this database** until `PATCH /teams/standings` was run during the smoke. Nothing in
+  the code removes them (`saveCompetitionTeams` only `setOnInsert`s the map, `refreshStandings` puts into it),
+  so the standings refresh had simply not run against this database since the team documents were created —
+  `StandingsJob` only fires while an app instance is up against that DB. The player feature degraded as
+  designed ("standing data unavailable"), but every sentence was thinner for it.
+- **Two La Liga scorers have no `leagueScorerRank`** — Yamal (6 goals) and Vinícius (5) — while Mbappé (rank 1)
+  and Raphinha (rank 13) do, so the charts are fetched and matched. Both unranked players are stored with
+  reversed names ("Yamal Lamine", "Junior Vinicius"), the tell that apifootball holds them under a second
+  player record: the rank join is `get_topscorers.player_key` → `PlayerData.id`, and if the charts list them
+  under the other id they never match. To confirm: `get_topscorers&league_id=302`, compare Yamal's
+  `player_key` with `2532001232`. If it differs there is no clean fix on our side; the sentence then leads
+  with the squad-relative "leading scorer" fact instead, which is what happened.
+- **Sentences cached before a prompt fix stay cached** until `TeamsJob` moves one of the player's snapshot
+  fields — Haaland's BRITISH sentence still says "hasn't had a goal contribution in the last five". That is
+  the caching rule working as specified; if the owner wants the fixed prompt everywhere at once, unset
+  `oneLiners` on `playerData` (one `updateMany`) and they regenerate on demand.
+- **Hebrew transliterates names badly** ("אקטיקה" for Ekitike, "איארולה" for Iraola). Shared with the other
+  one-liners; not addressed here.
+
+### Tests added (5)
+
+`SquadContextTest` (3: keeper by id, the backup keeper is not first choice, an outfield player never is);
+`PlayerAngleSelectionTest` ×2 (fringe in a squad where half have never played; an injured player on under
+half the games is fringe, not an injured regular). Existing builder tests updated for the new hint wording,
+the omitted empty section, and the new constraints.
+
+### Owed
+
+- Nothing on the feature. All four phases are committed on `feature/player-oneliner`; the branch is ready for
+  a PR to `main`.
+- **On the production rollout** (owner's plan): fixtures already stored there carry no scorer ids, and finished
+  ones are never re-fetched, so the owner will delete the fixture collection once and run `POST /fixtures`
+  after deploying. Until that runs `recentContributions` is empty and the prompt says nothing about it, so no
+  wrong sentence is produced in the meantime. The first scheduled `TeamsJob` (Mon/Thu 04:00) is the run to
+  watch — it is the first production exercise of the `$set` upsert and the bug #11 removal.

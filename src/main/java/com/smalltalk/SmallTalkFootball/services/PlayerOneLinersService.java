@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.Language;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
 import com.smalltalk.SmallTalkFootball.models.PlayerFacts;
 import com.smalltalk.SmallTalkFootball.models.PlayerOneLiner;
 import com.smalltalk.SmallTalkFootball.models.PlayerSmallTalk;
@@ -59,13 +60,18 @@ public class PlayerOneLinersService {
         Competition competition = team == null ? null : team.primaryCompetition().orElse(null);
         List<Fixture> recentForm = fixtureService.getRecentFinishedForTeam(teamId, RECENT_FORM_LIMIT);
         Fixture nextFixture = fixtureService.getNextFixtureForTeam(teamId).orElse(null);
+        List<MatchContribution> recentContributions = recentForm.stream()
+                .map(fixture -> MatchContribution.of(fixture, playerId, teamId))
+                .filter(contribution -> contribution.goals() > 0 || contribution.assists() > 0)
+                .toList();
 
         PlayerOneLiner oneLiner = player.findOneLiner(lang)
                 .filter(cached -> isFresh(cached, player))
                 .orElseGet(() -> generate(new PlayerPromptContext(
-                        player, squadContext, team, competition, recentForm, nextFixture), lang));
+                        player, squadContext, team, competition, recentForm, nextFixture, recentContributions), lang));
 
-        return new PlayerSmallTalk(oneLiner, PlayerFacts.from(player, squadContext, team, competition, nextFixture));
+        return new PlayerSmallTalk(oneLiner,
+                PlayerFacts.from(player, squadContext, team, competition, recentContributions, nextFixture));
     }
 
     private static boolean isFresh(PlayerOneLiner cached, PlayerData player) {

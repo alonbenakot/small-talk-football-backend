@@ -21,7 +21,7 @@ class PlayerAngleSelectionTest {
                 .matchesPlayed(apps).goals(goals).assists(assists);
     }
 
-    /** Ten regulars on ten appearances with a goal each, so the median is 10 and nobody stands out. */
+    /** Ten regulars on ten appearances with a goal each, so the busiest has 10 and nobody stands out. */
     private static List<PlayerData> regulars() {
         return java.util.stream.IntStream.rangeClosed(1, 10)
                 .mapToObj(i -> player("regular-" + i, "Midfielders", 10, 1, 1).build())
@@ -88,6 +88,29 @@ class PlayerAngleSelectionTest {
         PlayerData subject = player("midfielder", "Midfielders", 7, 0, 0).build();
 
         assertThat(angleOf(subject, regulars())).isEqualTo(Angle.REGULAR);
+    }
+
+    /**
+     * Found in the Phase 4 smoke: 3 of 12 came out as REGULAR because the threshold was the squad
+     * median, which sits at 3-4 when half the squad has never played.
+     */
+    @Test
+    void aFringePlayerInASquadWhereHalfHaveNeverPlayedIsStillFringe() {
+        PlayerData subject = player("reserve", "Midfielders", 3, 0, 0).build();
+        List<PlayerData> squad = new java.util.ArrayList<>(regulars());
+        for (int i = 0; i < 12; i++) {
+            squad.add(player("unused-" + i, "Defenders", null, 0, 0).build());
+        }
+
+        assertThat(angleOf(subject, squad)).isEqualTo(Angle.FRINGE);
+    }
+
+    /** 5 of 12 came out as an "injured regular" in the smoke; an injured fringe player gets the fringe angle. */
+    @Test
+    void anInjuredPlayerOnUnderHalfTheGamesIsFringeNotAnInjuredRegular() {
+        PlayerData subject = player("winger", "Forwards", 4, 1, 0).injured(true).build();
+
+        assertThat(angleOf(subject, regulars())).isEqualTo(Angle.FRINGE);
     }
 
     @Test

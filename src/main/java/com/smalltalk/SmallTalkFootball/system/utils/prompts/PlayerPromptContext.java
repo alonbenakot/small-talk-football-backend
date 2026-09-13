@@ -4,6 +4,7 @@ import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
 import com.smalltalk.SmallTalkFootball.models.SquadContext;
 
 import java.util.List;
@@ -18,5 +19,6 @@ public record PlayerPromptContext(PlayerData player,
                                   TeamData team,
                                   Competition competition,
                                   List<Fixture> recentForm,
-                                  Fixture nextFixture) {
+                                  Fixture nextFixture,
+                                  List<MatchContribution> recentContributions) {
 }

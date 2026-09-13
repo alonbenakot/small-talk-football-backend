@@ -69,7 +69,7 @@ Two `ObjectMapper` beans exist (`ObjectMapperConfig`): the `@Primary` one is `LO
 and the `@Qualifier("apiClient")` one is `SNAKE_CASE` and must be used for anything deserialized from apifootball.
 
 Every apifootball response shape the app reads — live JSON samples, which fields each DTO binds, and the traps
-in each endpoint — is documented in [`docs/football-api-responses.md`](docs/football-api-responses.md). Read it
+in each endpoint — is documented in [`.claude/docs/football-api-responses.md`](.claude/docs/football-api-responses.md). Read it
 before adding or changing a DTO; it is more accurate than the published apifootball documentation.
 
 The `Competition` enum is the whitelist of tracked leagues, mapping our names to apifootball league ids. Adding a

@@ -1,9 +1,13 @@
 package com.smalltalk.SmallTalkFootball.services;
 
+import com.smalltalk.SmallTalkFootball.domain.Fixture;
 import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.Language;
+import com.smalltalk.SmallTalkFootball.enums.TeamType;
+import com.smalltalk.SmallTalkFootball.models.Goal;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
 import com.smalltalk.SmallTalkFootball.models.PlayerOneLiner;
 import com.smalltalk.SmallTalkFootball.models.PlayerSmallTalk;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
@@ -23,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -277,6 +282,72 @@ class PlayerOneLinersServiceTest {
 
             assertThatThrownBy(() -> service.getPlayerSmallTalk("nope", Language.BRITISH))
                     .isInstanceOf(NotFoundException.class);
+        }
+    }
+
+    /**
+     * Phase 3 (plan §4.4): a player's recent contributions are a filter over his club's last
+     * five finished fixtures, joined on the scorer / assist ids the feed puts on each goal.
+     */
+    @Nested
+    class RecentContributions {
+
+        private Fixture fixture(String id, Instant date, Goal... goals) {
+            return TestFixtures.finishedFixture().id(id).matchDateTime(date)
+                    .goals(new ArrayList<>(List.of(goals))).build();
+        }
+
+        @Test
+        void countsGoalsAndAssistsPerFixtureForThisPlayerOnly() throws Exception {
+            Instant latest = Instant.parse("2026-03-08T15:00:00Z");
+            Instant earlier = Instant.parse("2026-03-01T20:45:00Z");
+            when(fixtureService.getRecentFinishedForTeam(TEAM_ID, 5)).thenReturn(List.of(
+                    fixture("fx-2", latest,
+                            TestFixtures.goalById(PLAYER_ID, "p-7", TeamType.HOME),
+                            TestFixtures.goalById(PLAYER_ID, null, TeamType.HOME),
+                            TestFixtures.goalById("p-7", PLAYER_ID, TeamType.HOME),
+                            TestFixtures.goalById("away-9", null, TeamType.AWAY)),
+                    fixture("fx-1", earlier,
+                            TestFixtures.goalById("p-7", "p-8", TeamType.HOME))));
+
+            List<MatchContribution> contributions = call(salah().build()).facts().recentContributions();
+
+            assertThat(contributions).containsExactly(
+                    new MatchContribution("fx-2", latest, TestFixtures.AWAY_TEAM_NAME, 2, 1));
+        }
+
+        @Test
+        void namesTheOpponentFromThePlayersSideOfTheFixture() throws Exception {
+            Fixture away = TestFixtures.finishedFixture()
+                    .homeTeam(TestFixtures.awayTeam()).awayTeam(TestFixtures.homeTeam())
+                    .goals(new ArrayList<>(List.of(TestFixtures.goalById(PLAYER_ID, null, TeamType.AWAY))))
+                    .build();
+            when(fixtureService.getRecentFinishedForTeam(TEAM_ID, 5)).thenReturn(List.of(away));
+
+            assertThat(call(salah().build()).facts().recentContributions())
+                    .singleElement().extracting(MatchContribution::opponent).isEqualTo(TestFixtures.AWAY_TEAM_NAME);
+        }
+
+        /** Fixtures ingested before the ids were bound carry none, so they contribute nothing. */
+        @Test
+        void fixturesWhoseGoalsCarryNoIdsContributeNothing() throws Exception {
+            when(fixtureService.getRecentFinishedForTeam(TEAM_ID, 5))
+                    .thenReturn(List.of(TestFixtures.finishedFixture().build()));
+
+            assertThat(call(salah().build()).facts().recentContributions()).isEmpty();
+        }
+
+        @Test
+        void handsTheContributionsToThePromptBuilder() throws Exception {
+            when(fixtureService.getRecentFinishedForTeam(TEAM_ID, 5)).thenReturn(List.of(
+                    fixture("fx-1", GENERATED_AT, TestFixtures.goalById(PLAYER_ID, null, TeamType.HOME))));
+
+            call(salah().build());
+
+            ArgumentCaptor<PlayerPromptContext> context = ArgumentCaptor.forClass(PlayerPromptContext.class);
+            verify(promptBuilderFactory).create(context.capture(), any());
+            assertThat(context.getValue().recentContributions())
+                    .singleElement().extracting(MatchContribution::goals).isEqualTo(1);
         }
     }
 }

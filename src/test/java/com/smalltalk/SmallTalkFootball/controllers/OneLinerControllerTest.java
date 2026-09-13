@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.Perspective;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
 import com.smalltalk.SmallTalkFootball.models.PlayerFacts;
 import com.smalltalk.SmallTalkFootball.models.PlayerOneLiner;
 import com.smalltalk.SmallTalkFootball.models.PlayerSmallTalk;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -238,7 +240,9 @@ class OneLinerControllerTest {
                     Competition.PREMIER_LEAGUE,
                     new PlayerFacts.Season(10, 8, null, null, null, null, null, null, null, null, null, null,
                             null, null, "7.30", null, null, null),
-                    1, null, null, null);
+                    1, null, null,
+                    List.of(new MatchContribution("fx-1", Instant.parse("2026-09-13T15:30:00Z"), "Manchester Utd", 1, 0)),
+                    null);
 
             return new PlayerSmallTalk(oneLiner, facts);
         }
@@ -270,7 +274,10 @@ class OneLinerControllerTest {
                     .andExpect(jsonPath("$.data.oneLiner.assistsAtGeneration").doesNotExist())
                     .andExpect(jsonPath("$.data.oneLiner.injuredAtGeneration").doesNotExist())
                     .andExpect(jsonPath("$.data.oneLiner.scorerRankAtGeneration").doesNotExist())
-                    .andExpect(jsonPath("$.data.facts.season.assists").value((Object) null));
+                    .andExpect(jsonPath("$.data.facts.season.assists").value((Object) null))
+                    // found live: a record's isEmpty() serialised as an "empty" property
+                    .andExpect(jsonPath("$.data.facts.recentContributions[0].goals").value(1))
+                    .andExpect(jsonPath("$.data.facts.recentContributions[0].empty").doesNotExist());
         }
 
         @Test

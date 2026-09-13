@@ -13,6 +13,11 @@ public class Goal {
 
     private String assistBy;
 
+    /** apifootball player ids (the same identifier as {@code PlayerData.id}); null when the feed sends a blank. */
+    private String scorerId;
+
+    private String assistId;
+
     private int homeScore;
 
     private int awayScore;

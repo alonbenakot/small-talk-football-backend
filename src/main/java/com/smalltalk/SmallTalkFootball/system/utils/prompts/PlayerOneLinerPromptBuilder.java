@@ -3,8 +3,13 @@ package com.smalltalk.SmallTalkFootball.system.utils.prompts;
 import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Language;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
 import com.smalltalk.SmallTalkFootball.models.SquadContext;
 import com.smalltalk.SmallTalkFootball.system.utils.prompts.PlayerAngleSelection.Angle;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * The player one-liner prompt: one voice, no perspective (plan §3). The data block leads with
@@ -69,6 +74,9 @@ public class PlayerOneLinerPromptBuilder implements PromptBuilder {
                 Do not mention this player's nationality, age, former clubs, transfer value, honours or career history unless it appears in the data below.
                 No predictions, no invented transfers, injuries, quotes or statistics.
                 Do not speculate about his future, his attitude, his fitness or his relationship with the club.
+                Do not describe the nature of an injury or how it happened.
+                Do not say he scored, assisted or featured in any particular match unless that match is listed under his goals and assists.
+                Put it in your own words - do not copy phrases from the data.
                 A stat marked "not recorded" is unknown, not zero - do not mention it.
                 If the data is thin, say something modest and true rather than reaching for something you remember.""";
     }
@@ -77,7 +85,7 @@ public class PlayerOneLinerPromptBuilder implements PromptBuilder {
     public String examples() {
         return """
                 1. Haaland's eight in ten and top of the charts, City are just feeding him.
-                2. Alisson's made twenty-one saves in nine, they're leaning on him more than they'd like.
+                2. Alisson's up to twenty-one saves and they've still let in twelve, he's being left exposed.
                 3. Van Dijk hasn't missed a game at the back for a side sitting second.
                 4. Jota's out injured, and they'll miss him, he'd started nine of ten.
                 5. Elliott's barely featured, three appearances all season, mind you they're top and unchanged.
@@ -95,14 +103,33 @@ public class PlayerOneLinerPromptBuilder implements PromptBuilder {
                 Season so far: %s
                 In the squad: %s
                 Lead with: %s
-
+                %s
                 %s""".formatted(
                 phrasePlayer(player),
                 player.isInjured() ? "currently injured" : "fit",
                 phraseSeason(player),
                 phraseSquad(squad),
                 phraseAngle(PlayerAngleSelection.select(player, squad), player),
+                phraseContributions(),
                 phraseClub());
+    }
+
+    /**
+     * Left out entirely when there is nothing on record. The live smoke showed that any wording
+     * of the empty case ("no goals or assists on record") is read as zero, and a fixture ingested
+     * before the scorer ids were bound contributes nothing even if he scored in it (plan §4.4).
+     */
+    private String phraseContributions() {
+        if (context.recentContributions().isEmpty()) {
+            return "";
+        }
+        return """
+
+                His goals and assists in the club's recent games (most recent first):
+                %s
+                """.formatted(context.recentContributions().stream()
+                .map(c -> "  %d goals, %d assists v %s (%s)".formatted(c.goals(), c.assists(), c.opponent(), c.date()))
+                .collect(Collectors.joining("\n")));
     }
 
     private String phrasePlayer(PlayerData player) {
@@ -135,33 +162,38 @@ public class PlayerOneLinerPromptBuilder implements PromptBuilder {
         return line.toString();
     }
 
+    /**
+     * Flags only. The squad size and appearance share both leaked through in the smoke ("in a
+     * 32-man squad", "40% share of the busiest guy's minutes"); the angle says where he stands.
+     * Being first-choice keeper is not a flag either: it is the baseline for a keeper, and naming
+     * it produced "clearly City's first-choice, nine games already".
+     */
     private static String phraseSquad(SquadContext squad) {
-        StringBuilder line = new StringBuilder("squad of %d".formatted(squad.squadSize()));
+        List<String> flags = new ArrayList<>();
         if (squad.leadingScorer()) {
-            line.append(", the squad's leading scorer");
+            flags.add("the squad's leading scorer");
         }
         if (squad.leadingContributor()) {
-            line.append(", clearly the squad's leading goal contributor");
+            flags.add("clearly the squad's leading goal contributor");
         }
-        if (squad.firstChoiceKeeper()) {
-            line.append(", the first-choice goalkeeper");
-        }
-        line.append(", has played %d%% of the games the squad's busiest player has".formatted(
-                Math.round(squad.appearanceShare() * 100)));
-        return line.toString();
+        return flags.isEmpty() ? "nothing stands out" : String.join(", ", flags);
     }
 
+    /**
+     * Topic phrases, not sentences: the Phase 4 smoke showed a sentence here gets copied into
+     * the answer word for word ("He is a regular who is currently injured and being missed").
+     */
     private static String phraseAngle(Angle angle, PlayerData player) {
         return switch (angle) {
-            case INJURED -> "he is a regular who is currently injured and being missed";
+            case INJURED -> "his injury - a regular starter the side is currently without";
             case LEAGUE_SCORER -> "his place in the league scoring charts";
-            case LEADING_CONTRIBUTOR -> "he is carrying the squad's goal contributions";
-            case KEEPER -> "he is the first-choice goalkeeper; his saves and what the side concedes in front of him";
-            case EVER_PRESENT -> "he plays nearly every game; his reliability rather than his numbers";
-            case REGULAR -> "he plays regularly but nothing in his numbers stands out; keep it modest and lean on the club's situation";
-            case FRINGE -> "he has barely featured (%d appearances); say so plainly rather than making him sound important"
+            case LEADING_CONTRIBUTOR -> "his share of the squad's goals and assists";
+            case KEEPER -> "how busy he is - his saves against what the side concedes; being first choice and playing every game is a given for a keeper, do not remark on either";
+            case EVER_PRESENT -> "his reliability - he plays nearly every game - rather than his numbers";
+            case REGULAR -> "his role as a regular starter with nothing standing out; stay modest and lean on the club's situation";
+            case FRINGE -> "how little he has featured (%d appearances); plain, not flattering"
                     .formatted(player.getMatchesPlayed());
-            case UNUSED -> "he has not played this season; say so plainly and lean on the club's situation";
+            case UNUSED -> "that he has not played this season; plain, and lean on the club's situation";
         };
     }
 

@@ -5,6 +5,8 @@ import com.smalltalk.SmallTalkFootball.domain.PlayerData;
 import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 
+import java.util.List;
+
 /**
  * The dry facts behind a player one-liner, shaped for the card (plan §2.1). A response type
  * rather than the {@link PlayerData} document itself, so the cached one-liner set cannot leak
@@ -26,6 +28,7 @@ public record PlayerFacts(String id,
                           Integer leagueScorerRank,
                           SquadContext squadContext,
                           Standing teamStanding,
+                          List<MatchContribution> recentContributions,
                           TeamFacts.NextFixture nextFixture) {
 
     public record Club(String id, String name, String crest, String coach) {
@@ -39,7 +42,8 @@ public record PlayerFacts(String id,
     }
 
     public static PlayerFacts from(PlayerData player, SquadContext squadContext, TeamData team,
-                                   Competition competition, Fixture nextFixture) {
+                                   Competition competition, List<MatchContribution> recentContributions,
+                                   Fixture nextFixture) {
         Standing standing = team == null || competition == null || team.getStandings() == null
                 ? null : team.getStandings().get(competition);
 
@@ -52,6 +56,7 @@ public record PlayerFacts(String id,
                 player.getLeagueScorerRank(),
                 squadContext,
                 standing,
+                recentContributions,
                 TeamFacts.nextFixture(nextFixture, player.getTeamId()));
     }
 
