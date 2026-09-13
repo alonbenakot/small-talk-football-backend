@@ -1,9 +1,12 @@
 # Frontend handoff — team and player one-liners
 
-Written for the React frontend's Claude Code session. It describes two backend features that are live on
-`env/prod` and have **no frontend yet**: the **team one-liner** and the **player one-liner**. It is the whole
-contract — you should not need to read the backend code. Every JSON sample below was captured from a running
-backend on 2026-09-13, not typed by hand (two long samples are trimmed where marked).
+Written for the React frontend's Claude Code session. It describes the backend behind three screens that have
+**no frontend yet** — a Teams page, a team page with the **team one-liner**, and a player card with the
+**player one-liner** — as one contract, so you should not need to read the backend code. Everything is live on
+`env/prod` except the one endpoint marked *planned* in §1.2 (and the `competition` field in §1.1), which has
+its own backend plan and can be built against now. Every JSON sample below was captured from a running
+backend on 2026-09-13, not typed by hand, except where a section says otherwise (two long samples are also
+trimmed where marked).
 
 The product idea, for context: SmallTalkFootball helps someone with no football knowledge hold a casual
 football conversation. Until now the app offered one-liners about a *match*. These two features extend the
@@ -12,13 +15,13 @@ Haaland?"). Each returns one or two spoken-sounding sentences plus the dry facts
 render a card.
 
 Suggested opening prompt for the FE session: *"Read `.claude/docs/frontend-handoff-oneliners.md` and plan
-the team and player one-liner screens."*
+the Teams page, team page and player card."*
 
 ---
 
 ## 0. Conventions that apply to every endpoint here
 
-- **All four endpoints are public.** No JWT, no `Authorization` header.
+- **Every endpoint here is public.** No JWT, no `Authorization` header.
 - **Every successful response is the standard envelope** the frontend already knows from `/fixtures`:
 
   ```json
@@ -52,17 +55,74 @@ Enum values used below:
 
 ---
 
-## 1. How the user reaches a team and a player
+## 1. The flow: Teams page → team page → player card
 
-There is **no team-list endpoint and no player search**. The intended flow is:
+This is the intended navigation (owner, 2026-09-13). Build to it rather than to any other reading of the
+endpoints.
 
-1. **Team ids come from fixtures**, which the FE already loads: `GET /fixtures` returns `homeTeam.id` /
-   `awayTeam.id` (and name, crest) on every fixture. A team one-liner is one tap away from any fixture, and a
-   team page can be reached from either side of a match.
-2. **Players come from a team's squad**: `GET /players/teams/{teamId}` (§2) lists the squad in shirt order.
-   The user picks one; the app calls the player one-liner with that id.
+```
+Teams page
+  competitions as tabs or sections (GET /competitions), each listing its teams in table order
+  (GET /teams?competition=…)
+    ↓ tap a team
+Team page
+  the team one-liner at the top — fetched automatically on arrival, or on a tap; both are fine
+  (GET /one-liners/teams/{id}); a perspective toggle; the facts as a card
+  beneath it, the squad (GET /players/teams/{id}) grouped by position
+    ↓ tap a player
+Player card
+  the player's facts, with a "what do I say about him?" action that fetches the one-liner
+  (GET /one-liners/players/{id}) — on a tap, not automatically, since a squad has 25–30 players
+```
 
-That is the whole navigation model: fixture → team → player. There is deliberately no free-text search.
+There is deliberately **no free-text search** for teams or players, and no need for one: every team is
+reachable through its competition and every player through his squad. The team one-liner and the squad
+are independent calls, so the squad can render while the sentence is still loading.
+
+A match one-liner (the feature the app already has) stays reachable from fixtures as before; `fixtureId`s
+in the payloads below link back to it.
+
+### 1.1 `GET /competitions` — the tabs
+
+Already exists and is public. Returns the tracked competitions with their display data:
+
+```json
+{ "data": [
+    { "leagueId": 152, "leagueName": "Premier League", "leagueLogo": "https://apiv3.apifootball.com/badges/logo_leagues/152_premier-league.png",
+      "countryName": "England", "leagueSeason": "2025/2026", "competition": "PREMIER_LEAGUE" },
+    { "leagueId": 302, "leagueName": "La Liga", "leagueLogo": "…/302_la-liga.png", "countryName": "Spain",
+      "leagueSeason": "2025/2026", "competition": "LA_LIGA" },
+    "…"
+  ], "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200 }
+```
+
+> **`competition` is not live yet** — it ships with the plan in `.claude/docs/teams-by-competition.md`.
+> Today the response carries only `leagueId`; the mapping is fixed and small if you need it before then:
+> `152 PREMIER_LEAGUE · 302 LA_LIGA · 175 BUNDESLIGA · 202 LIGAT_HA_AL · 207 SERIA_A · 3 CHAMPIONS_LEAGUE ·
+> 28 WORLD_CUP`. Do not offer `WORLD_CUP` as a tab: national teams have no league table, and the team
+> one-liner refuses them (§3, errors).
+
+### 1.2 `GET /teams?competition=PREMIER_LEAGUE` — the teams of a competition
+
+> **Planned, not live yet** — the backend plan is `.claude/docs/teams-by-competition.md`; this section is the
+> contract it will implement, so the FE can be built against it now. The sample below is the intended shape,
+> not a capture; it will be replaced with a real one when the endpoint ships.
+
+Public. `competition` is required, one of the enum values. Returns the competition's teams **in table
+order** (position ascending) — the Teams page reads like the league table for free.
+
+```json
+{ "data": [
+    { "id": "141", "name": "Arsenal FC", "crest": "https://apiv3.apifootball.com/badges/141_arsenal-fc.jpg", "position": 1, "points": 12 },
+    { "id": "80", "name": "Manchester City", "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg", "position": 2, "points": 12 },
+    "…"
+  ], "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200 }
+```
+
+- A competition whose table is not loaded yet returns `200` with `[]`.
+- `id` is what §3 and §2 take. `crest` is hot-linked; have a fallback.
+- Clubs in the Champions League appear under both their domestic league and `CHAMPIONS_LEAGUE`, each with
+  that table's position — the same club, the same `id`.
 
 ---
 
@@ -334,16 +394,20 @@ the first call, a player's sentence is stable for days. Instant on repeat.
 
 ---
 
-## 6. Screens this implies (a starting point, not a spec)
+## 6. The three screens
 
-1. **Team card** — reachable from either team on any fixture. Crest, name, coach; the sentence with a
-   perspective toggle (`FAN` / `NEUTRAL` / `RIVAL_FAN`) and, for two-table clubs, a competition toggle;
-   the primary standing (position, points, W-D-L); recent form as five result chips; next fixture; and
-   `notablePlayers` as tappable chips leading to the player card.
-2. **Squad picker** — from the team card. Grouped by position, shirt numbers, injured badge, dimmed rows for
-   `matchesPlayed: null`.
-3. **Player card** — photo, name, number, position, age, captain/injured badges; the sentence; club stub
-   with standing; the season stat sheet (hide nulls, goalkeeper block only for keepers); scorer-rank badge
-   when top-5; recent contributions list linking to match one-liners; next fixture.
+1. **Teams page** — competition tabs from `GET /competitions` (skip `WORLD_CUP`); under each, the teams from
+   `GET /teams?competition=` as rows or tiles in table order with crest, name, position and points.
+2. **Team page** — header with crest, name, coach. The one-liner block: fetched on arrival (recommended —
+   one call, and the user chose this page) or behind a "what do I say about them?" button; a perspective
+   toggle (`NEUTRAL` / `FAN` / `RIVAL_FAN`) and, for a club with two tables, a competition toggle. Facts
+   beneath: primary standing (position, points, W-D-L), recent form as five result chips, next fixture.
+   Then the squad from `GET /players/teams/{id}`, grouped by position, injured badge, dimmed rows for
+   `matchesPlayed: null`; each row opens the player card. `notablePlayers` from the one-liner response can be
+   highlighted in the squad list rather than shown as a separate group.
+3. **Player card** — photo, name, number, position, age, captain/injured badges; the club stub with standing;
+   the season stat sheet (hide nulls; goalkeeper block only for keepers); scorer-rank badge when top-5;
+   recent contributions linking to match one-liners; next fixture. The one-liner is generated **on a tap**
+   and then shown in place; on a second visit it comes back instantly from the cache.
 
 All three are read-only and public; no auth state is involved anywhere in this flow.
