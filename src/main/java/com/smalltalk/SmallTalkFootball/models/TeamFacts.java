@@ -89,13 +89,13 @@ public class TeamFacts {
                 .primaryCompetition(primaryCompetition)
                 .standings(team.getStandings())
                 .recentForm(recentForm.stream().map(fixture -> formResult(fixture, team)).toList())
-                .nextFixture(nextFixture(nextFixture, team))
+                .nextFixture(nextFixture(nextFixture, team.getId()))
                 .notablePlayers(notablePlayers)
                 .build();
     }
 
     private static FormResult formResult(Fixture fixture, TeamData team) {
-        boolean home = isHome(fixture, team);
+        boolean home = isHome(fixture, team.getId());
         Score score = fixture.getScore();
 
         return FormResult.builder()
@@ -119,11 +119,11 @@ public class TeamFacts {
         return homeWon == home ? Result.WIN : Result.LOSS;
     }
 
-    private static NextFixture nextFixture(Fixture fixture, TeamData team) {
+    static NextFixture nextFixture(Fixture fixture, String teamId) {
         if (fixture == null) {
             return null;
         }
-        boolean home = isHome(fixture, team);
+        boolean home = isHome(fixture, teamId);
         return NextFixture.builder()
                 .fixtureId(fixture.getId())
                 .opponent(home ? nameOf(fixture.getAwayTeam()) : nameOf(fixture.getHomeTeam()))
@@ -136,9 +136,9 @@ public class TeamFacts {
      * Matched on id rather than name: the id is what the query selected on, and team names in
      * the feed are not guaranteed to match the stored one character for character.
      */
-    private static boolean isHome(Fixture fixture, TeamData team) {
-        return fixture.getHomeTeam() != null && team.getId() != null
-                && team.getId().equals(fixture.getHomeTeam().getId());
+    private static boolean isHome(Fixture fixture, String teamId) {
+        return fixture.getHomeTeam() != null && teamId != null
+                && teamId.equals(fixture.getHomeTeam().getId());
     }
 
     private static String nameOf(Team team) {

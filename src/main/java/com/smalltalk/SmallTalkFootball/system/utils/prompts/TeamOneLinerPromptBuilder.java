@@ -6,7 +6,6 @@ import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.Perspective;
 import com.smalltalk.SmallTalkFootball.models.Standing;
-import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.WinLossDraw;
 
 import java.util.List;
@@ -130,7 +129,7 @@ public class TeamOneLinerPromptBuilder implements PromptBuilder {
                 PromptPhrasing.phraseStanding(name, team, context.competition()),
                 phraseHomeAwaySplit(team),
                 PromptPhrasing.phraseRecentForm(context.recentForm()),
-                phraseNextFixture(),
+                PromptPhrasing.phraseNextFixture(context.nextFixture(), context.team().getId()),
                 phrasePlayers());
     }
 
@@ -144,34 +143,6 @@ public class TeamOneLinerPromptBuilder implements PromptBuilder {
 
     private static String phraseRecord(WinLossDraw record) {
         return "%dW %dD %dL".formatted(nz(record.getWins()), nz(record.getDraws()), nz(record.getLosses()));
-    }
-
-    /**
-     * Home or away is decided on team ids, never names: {@code TeamData.name} and the name on
-     * a {@code Fixture} come from different apifootball endpoints and disagree ("Manchester
-     * United" vs "Manchester Utd"). A name comparison silently inverts the venue and then
-     * names the team as its own opponent.
-     */
-    private String phraseNextFixture() {
-        Fixture next = context.nextFixture();
-        if (next == null) {
-            return "  No upcoming fixture scheduled.";
-        }
-        String teamId = context.team().getId();
-        boolean atHome = next.getHomeTeam() != null && teamId != null
-                && teamId.equals(next.getHomeTeam().getId());
-        String opponent = atHome
-                ? nameOf(next.getAwayTeam())
-                : nameOf(next.getHomeTeam());
-        return "  %s %s (%s), %s".formatted(
-                atHome ? "at home to" : "away at",
-                opponent,
-                next.getCompetition(),
-                next.getMatchDateTime());
-    }
-
-    private static String nameOf(Team team) {
-        return team == null || team.getName() == null ? "an unnamed opponent" : team.getName();
     }
 
     /**

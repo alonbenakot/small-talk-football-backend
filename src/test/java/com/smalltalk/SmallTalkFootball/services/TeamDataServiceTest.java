@@ -24,7 +24,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.bson.Document;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
+import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+import org.springframework.data.mongodb.core.convert.NoOpDbRefResolver;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
 import java.util.ArrayList;
@@ -255,7 +261,9 @@ class TeamDataServiceTest {
     @Nested
     class SavingTeams {
 
-        private final ArgumentCaptor<PlayerData> savedPlayer = ArgumentCaptor.forClass(PlayerData.class);
+        private final ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
+
+        private final ArgumentCaptor<Query> query = ArgumentCaptor.forClass(Query.class);
 
         private TeamDataDto premierLeagueTeam;
 
@@ -274,64 +282,199 @@ class TeamDataServiceTest {
             bulk = mock(BulkOperations.class);
         }
 
-        /** Only the tests that actually write a squad stub the bulk, so strict stubbing stays useful. */
-        private void expectABulkWrite() {
+        /**
+         * Only the tests that actually write a squad stub the bulk, so strict stubbing stays
+         * useful. The converter is real: the $set document is what the test inspects. The
+         * count is lenient because the Champions League case must never reach it.
+         */
+        private void expectABulkWrite(long storedSquadSize) {
+            when(mongoTemplate.getConverter()).thenReturn(converter());
             when(mongoTemplate.bulkOps(any(), eq(PlayerData.class))).thenReturn(bulk);
-            when(bulk.replaceOne(any(), any(), any())).thenReturn(bulk);
+            lenient().when(mongoTemplate.count(any(), eq(PlayerData.class))).thenReturn(storedSquadSize);
+            when(bulk.upsert(any(Query.class), any(Update.class))).thenReturn(bulk);
+        }
+
+        /**
+         * A bare MongoMappingContext lacks the JSR-310 simple types Boot registers, and would
+         * try to map the {@code Instant} inside a cached one-liner as an entity.
+         */
+        private static MappingMongoConverter converter() {
+            MongoCustomConversions conversions = new MongoCustomConversions(List.of());
+            MongoMappingContext context = new MongoMappingContext();
+            context.setSimpleTypeHolder(conversions.getSimpleTypeHolder());
+            context.afterPropertiesSet();
+            MappingMongoConverter converter = new MappingMongoConverter(NoOpDbRefResolver.INSTANCE, context);
+            converter.setCustomConversions(conversions);
+            converter.afterPropertiesSet();
+            return converter;
+        }
+
+        private void squadOf(PlayerData... players) {
+            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(players));
+        }
+
+        private static PlayerData player(String id) {
+            return PlayerData.builder().id(id).teamId("80").build();
+        }
+
+        private Document setOf(Update captured) {
+            return captured.getUpdateObject().get("$set", Document.class);
+        }
+
+        private Document unsetOf(Update captured) {
+            return captured.getUpdateObject().get("$unset", Document.class);
         }
 
         @Test
         void upsertsTheTeamAndWritesEverySquadMember() {
-            expectABulkWrite();
-            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
-                    PlayerData.builder().id("p1").teamId("80").build(),
-                    PlayerData.builder().id("p2").teamId("80").build()));
+            expectABulkWrite(2);
+            squadOf(player("p1"), player("p2"));
 
             service.saveCompetitionTeams();
 
             verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
-            verify(bulk, times(2)).replaceOne(any(), any(PlayerData.class), any());
+            verify(bulk, times(2)).upsert(any(Query.class), any(Update.class));
             verify(bulk).execute();
+        }
+
+        /**
+         * A $set of the mapped fields rather than a replace, so whatever the refresh does not
+         * write (the cached one-liners, from Phase 2 on) survives it. The id is the upsert key,
+         * not a $set field.
+         */
+        @Test
+        void writesEachPlayerAsASetUpsertKeyedOnId() {
+            expectABulkWrite(1);
+            squadOf(PlayerData.builder().id("p1").teamId("80").name("Erling Haaland").goals(8).build());
+
+            service.saveCompetitionTeams();
+
+            verify(bulk).upsert(query.capture(), update.capture());
+            assertThat(query.getValue().getQueryObject()).containsEntry("_id", "p1");
+            assertThat(setOf(update.getValue()))
+                    .containsEntry("name", "Erling Haaland")
+                    .containsEntry("goals", 8)
+                    .containsEntry("teamId", "80")
+                    .doesNotContainKey("_id");
+        }
+
+        /**
+         * The converter omits nulls, so $set alone would leave last week's value in place — a
+         * scorer rank that dropped out of the charts has to be cleared explicitly.
+         */
+        @Test
+        void clearsAFieldThatWentFromAValueToNull() {
+            expectABulkWrite(1);
+            squadOf(player("p1"));
+
+            service.saveCompetitionTeams();
+
+            verify(bulk).upsert(any(Query.class), update.capture());
+            assertThat(unsetOf(update.getValue()))
+                    .containsKey("leagueScorerRank")
+                    .containsKey("goals")
+                    .doesNotContainKey("_id");
+        }
+
+        /**
+         * The whole point of the $set write: the cached one-liners are neither set nor unset by
+         * a refresh, so a sentence written by the player one-liner service survives it.
+         */
+        @Test
+        void leavesTheCachedOneLinersAloneOnARefresh() {
+            expectABulkWrite(1);
+            squadOf(player("p1"));
+
+            service.saveCompetitionTeams();
+
+            verify(bulk).upsert(any(Query.class), update.capture());
+            assertThat(setOf(update.getValue())).doesNotContainKey("oneLiners");
+            assertThat(unsetOf(update.getValue())).doesNotContainKey("oneLiners");
         }
 
         /**
          * The squad is written in one bulk per team instead of one round-trip per player,
          * which took eleven minutes across a full refresh. A national team comes back with no
          * squad at all, and execute() rejects a bulk holding no operations - so an empty squad
-         * has to skip the bulk entirely rather than send an empty one.
+         * has to skip the bulk entirely rather than send an empty one. It must also never be
+         * read as "everyone left": the removal below is skipped along with the write.
          */
         @Test
-        void writesNothingForATeamWithNoSquad() {
-            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of());
+        void writesNothingAndRemovesNobodyForATeamWithNoSquad() {
+            squadOf();
 
             service.saveCompetitionTeams();
 
             verify(mongoTemplate).upsert(any(), any(), eq(TeamData.class));
             verify(mongoTemplate, never()).bulkOps(any(), eq(PlayerData.class));
+            verify(bulk, never()).remove(any(Query.class));
             verify(bulk, never()).execute();
         }
 
         @Test
         void backfillsTheLeagueScorerRankOntoTheMatchingPlayer() {
-            expectABulkWrite();
+            expectABulkWrite(2);
             TopScorerItem scorer = mock(TopScorerItem.class);
             when(scorer.getPlayerKey()).thenReturn("p1");
             when(scorer.getPlayerPlace()).thenReturn("3");
             when(apiService.getTopScorers(Competition.PREMIER_LEAGUE)).thenReturn(List.of(scorer));
 
-            when(playerDataMapper.map(premierLeagueTeam)).thenReturn(List.of(
-                    PlayerData.builder().id("p1").teamId("80").build(),
-                    PlayerData.builder().id("p2").teamId("80").build()));
+            squadOf(player("p1"), player("p2"));
 
             service.saveCompetitionTeams();
 
-            verify(bulk, times(2)).replaceOne(any(), savedPlayer.capture(), any());
-            assertThat(savedPlayer.getAllValues())
-                    .filteredOn(player -> player.getId().equals("p1"))
-                    .allMatch(player -> player.getLeagueScorerRank() == 3);
-            assertThat(savedPlayer.getAllValues())
-                    .filteredOn(player -> player.getId().equals("p2"))
-                    .allMatch(player -> player.getLeagueScorerRank() == null);
+            verify(bulk, times(2)).upsert(any(Query.class), update.capture());
+            assertThat(setOf(update.getAllValues().get(0))).containsEntry("leagueScorerRank", 3);
+            assertThat(unsetOf(update.getAllValues().get(1))).containsKey("leagueScorerRank");
+        }
+
+        /**
+         * Bug #11: a player who left the tracked leagues used to keep his teamId forever. The
+         * same bulk now removes every stored player of the team who is not in the payload.
+         */
+        @Test
+        void removesStoredPlayersAbsentFromThePayload() {
+            expectABulkWrite(3);
+            squadOf(player("p1"), player("p2"));
+
+            service.saveCompetitionTeams();
+
+            verify(bulk).remove(query.capture());
+            Document removal = query.getValue().getQueryObject();
+            assertThat(removal).containsEntry("teamId", "80");
+            assertThat(removal.get("_id", Document.class)).containsEntry("$nin", List.of("p1", "p2"));
+        }
+
+        /**
+         * A payload smaller than half the stored squad is what a truncated response looks like,
+         * not a squad that halved between Thursday and Monday. The write still goes ahead; the
+         * stale players simply survive until a full response arrives.
+         */
+        @Test
+        void keepsTheStoredSquadWhenThePayloadIsLessThanHalfItsSize() {
+            expectABulkWrite(25);
+            squadOf(player("p1"), player("p2"));
+
+            service.saveCompetitionTeams();
+
+            verify(bulk, never()).remove(any(Query.class));
+            verify(bulk, times(2)).upsert(any(Query.class), any(Update.class));
+            verify(bulk).execute();
+        }
+
+        /** Two competitions refresh the same club; only the domestic call may remove anyone. */
+        @Test
+        void removesNobodyFromAChampionsLeagueRefresh() {
+            when(apiService.getTeamDataList(Competition.PREMIER_LEAGUE)).thenReturn(List.of());
+            when(apiService.getTeamDataList(Competition.CHAMPIONS_LEAGUE)).thenReturn(List.of(premierLeagueTeam));
+            expectABulkWrite(3);
+            squadOf(player("p1"), player("p2"));
+
+            service.saveCompetitionTeams();
+
+            verify(mongoTemplate, never()).count(any(), eq(PlayerData.class));
+            verify(bulk, never()).remove(any(Query.class));
+            verify(bulk).execute();
         }
     }
 }

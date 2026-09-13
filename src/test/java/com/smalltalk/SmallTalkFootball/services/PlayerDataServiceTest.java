@@ -1,7 +1,10 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.PlayerData;
+import com.smalltalk.SmallTalkFootball.models.PlayerSummary;
 import com.smalltalk.SmallTalkFootball.repositories.PlayerDataRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -9,8 +12,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 /**
@@ -133,5 +138,71 @@ class PlayerDataServiceTest {
         when(repository.findByTeamId(TEAM)).thenReturn(List.of());
 
         assertThat(service().getNotablePlayers(TEAM)).isEmpty();
+    }
+
+    @Nested
+    class Lookup {
+
+        @Test
+        void returnsAStoredPlayer() throws Exception {
+            PlayerData player = player("p1", "Forwards", 9, 8, 0, 80, 17, 33);
+            when(repository.findById("p1")).thenReturn(Optional.of(player));
+
+            assertThat(service().getPlayerById("p1")).isSameAs(player);
+        }
+
+        /** A 404, not a 500: the id is user-supplied through the player one-liner route. */
+        @Test
+        void rejectsAnUnknownPlayerId() {
+            when(repository.findById("nope")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service().getPlayerById("nope"))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("nope");
+        }
+    }
+
+    @Nested
+    class SquadSummaries {
+
+        private static PlayerData squadMember(String id, String position, String number) {
+            return PlayerData.builder().id(id).teamId(TEAM).name(id).position(position).number(number).build();
+        }
+
+        @Test
+        void carriesOnlyThePickerFields() {
+            PlayerData player = PlayerData.builder()
+                    .id("p1").teamId(TEAM).name("Erling Haaland").image("haaland.jpg").number("9")
+                    .position("Forwards").injured(true).matchesPlayed(10).goals(8).rating("7.30")
+                    .build();
+            when(repository.findByTeamId(TEAM)).thenReturn(List.of(player));
+
+            assertThat(service().getSquadSummaries(TEAM)).containsExactly(
+                    new PlayerSummary("p1", "Erling Haaland", "haaland.jpg", "9", "Forwards", true, 10));
+        }
+
+        /** Keeper, defence, midfield, attack, then shirt number — a squad list, not a database dump. */
+        @Test
+        void readsLikeASquadList() {
+            when(repository.findByTeamId(TEAM)).thenReturn(List.of(
+                    squadMember("fw-9", "Forwards", "9"),
+                    squadMember("def-blank", "Defenders", ""),
+                    squadMember("mid-8", "Midfielders", "8"),
+                    squadMember("def-2", "Defenders", "2"),
+                    squadMember("gk-1", "Goalkeepers", "1"),
+                    squadMember("unknown", null, "3"),
+                    squadMember("def-14", "Defenders", "14")));
+
+            assertThat(service().getSquadSummaries(TEAM))
+                    .extracting(PlayerSummary::id)
+                    .containsExactly("gk-1", "def-2", "def-14", "def-blank", "mid-8", "fw-9", "unknown");
+        }
+
+        @Test
+        void isEmptyForATeamWithNoStoredSquad() {
+            when(repository.findByTeamId(TEAM)).thenReturn(List.of());
+
+            assertThat(service().getSquadSummaries(TEAM)).isEmpty();
+        }
     }
 }

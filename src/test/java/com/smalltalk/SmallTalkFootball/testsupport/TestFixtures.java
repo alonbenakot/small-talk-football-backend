@@ -111,6 +111,17 @@ public final class TestFixtures {
                 .build();
     }
 
+    /** A goal carrying the apifootball player ids the recent-contributions join keys on. */
+    public static Goal goalById(String scorerId, String assistId, TeamType teamType) {
+        return Goal.builder()
+                .minute(30)
+                .scorerId(scorerId)
+                .assistId(assistId)
+                .teamName(teamType == TeamType.HOME ? HOME_TEAM_NAME : AWAY_TEAM_NAME)
+                .teamType(teamType)
+                .build();
+    }
+
     public static Statistic statistic(String type, int home, int away, boolean percentage) {
         return Statistic.builder()
                 .type(type)

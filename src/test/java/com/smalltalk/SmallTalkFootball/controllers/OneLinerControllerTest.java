@@ -5,11 +5,16 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.Perspective;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
+import com.smalltalk.SmallTalkFootball.models.MatchContribution;
+import com.smalltalk.SmallTalkFootball.models.PlayerFacts;
+import com.smalltalk.SmallTalkFootball.models.PlayerOneLiner;
+import com.smalltalk.SmallTalkFootball.models.PlayerSmallTalk;
 import com.smalltalk.SmallTalkFootball.models.TeamFacts;
 import com.smalltalk.SmallTalkFootball.models.TeamOneLiner;
 import com.smalltalk.SmallTalkFootball.models.TeamSmallTalk;
 import com.smalltalk.SmallTalkFootball.security.JwtAuthFilter;
 import com.smalltalk.SmallTalkFootball.services.OneLinersService;
+import com.smalltalk.SmallTalkFootball.services.PlayerOneLinersService;
 import com.smalltalk.SmallTalkFootball.services.TeamOneLinersService;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
@@ -24,6 +29,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -45,6 +51,9 @@ class OneLinerControllerTest {
 
     @MockBean
     private TeamOneLinersService teamService;
+
+    @MockBean
+    private PlayerOneLinersService playerService;
 
     private static OneLiner oneLiner(String text) {
         return OneLiner.builder().teamType(TeamType.HOME).language(Language.BRITISH).text(text).build();
@@ -208,6 +217,84 @@ class OneLinerControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.systemMessage.messageText")
                             .value(Messages.NO_TEAM_FOUND.formatted("nope")));
+        }
+    }
+
+    @Nested
+    class PlayerRoute {
+
+        private PlayerSmallTalk smallTalk(String text) {
+            PlayerOneLiner oneLiner = PlayerOneLiner.builder()
+                    .language(Language.BRITISH)
+                    .text(text)
+                    .generatedAt(Instant.parse("2026-09-10T10:02:11Z"))
+                    .matchesPlayedAtGeneration(10)
+                    .goalsAtGeneration(8)
+                    .assistsAtGeneration(0)
+                    .injuredAtGeneration(false)
+                    .scorerRankAtGeneration(1)
+                    .build();
+
+            PlayerFacts facts = new PlayerFacts("659972248", "Erling Haaland", null, "9", "Forwards", "26",
+                    true, false, new PlayerFacts.Club("80", "Manchester City", null, "Enzo Maresca"),
+                    Competition.PREMIER_LEAGUE,
+                    new PlayerFacts.Season(10, 8, null, null, null, null, null, null, null, null, null, null,
+                            null, null, "7.30", null, null, null),
+                    1, null, null,
+                    List.of(new MatchContribution("fx-1", Instant.parse("2026-09-13T15:30:00Z"), "Manchester Utd", 1, 0)),
+                    null);
+
+            return new PlayerSmallTalk(oneLiner, facts);
+        }
+
+        @Test
+        void returnsTheSentenceAndTheFacts() throws Exception {
+            when(playerService.getPlayerSmallTalk("659972248", Language.BRITISH))
+                    .thenReturn(smallTalk("Haaland's eight in ten and top of the charts."));
+
+            mockMvc.perform(get("/one-liners/players/659972248").param("lang", "BRITISH"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.oneLiner.text").value("Haaland's eight in ten and top of the charts."))
+                    .andExpect(jsonPath("$.data.oneLiner.language").value("BRITISH"))
+                    .andExpect(jsonPath("$.data.facts.name").value("Erling Haaland"))
+                    .andExpect(jsonPath("$.data.facts.team.name").value("Manchester City"))
+                    .andExpect(jsonPath("$.data.facts.season.goals").value(8))
+                    .andExpect(jsonPath("$.data.facts.leagueScorerRank").value(1));
+        }
+
+        /** The snapshot is a caching detail, not something the client should see; nulls in season stay null. */
+        @Test
+        void doesNotLeakTheSnapshotAndKeepsAbsentStatsNull() throws Exception {
+            when(playerService.getPlayerSmallTalk(any(), any())).thenReturn(smallTalk("Eight in ten."));
+
+            mockMvc.perform(get("/one-liners/players/659972248").param("lang", "BRITISH"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.oneLiner.matchesPlayedAtGeneration").doesNotExist())
+                    .andExpect(jsonPath("$.data.oneLiner.goalsAtGeneration").doesNotExist())
+                    .andExpect(jsonPath("$.data.oneLiner.assistsAtGeneration").doesNotExist())
+                    .andExpect(jsonPath("$.data.oneLiner.injuredAtGeneration").doesNotExist())
+                    .andExpect(jsonPath("$.data.oneLiner.scorerRankAtGeneration").doesNotExist())
+                    .andExpect(jsonPath("$.data.facts.season.assists").value((Object) null))
+                    // found live: a record's isEmpty() serialised as an "empty" property
+                    .andExpect(jsonPath("$.data.facts.recentContributions[0].goals").value(1))
+                    .andExpect(jsonPath("$.data.facts.recentContributions[0].empty").doesNotExist());
+        }
+
+        @Test
+        void requiresTheLanguage() throws Exception {
+            mockMvc.perform(get("/one-liners/players/659972248"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void reportsAnUnknownPlayerAsANotFound() throws Exception {
+            when(playerService.getPlayerSmallTalk(any(), any()))
+                    .thenThrow(new NotFoundException(Messages.NO_PLAYER_FOUND.formatted("nope")));
+
+            mockMvc.perform(get("/one-liners/players/nope").param("lang", "BRITISH"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.systemMessage.messageText")
+                            .value(Messages.NO_PLAYER_FOUND.formatted("nope")));
         }
     }
 }

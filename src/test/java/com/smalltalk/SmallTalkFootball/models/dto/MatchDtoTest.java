@@ -24,6 +24,14 @@ class MatchDtoTest {
               "match_awayteam_name": "Everton",
               "match_hometeam_score": "3",
               "match_awayteam_score": "1",
+              "goalscorer": [
+                { "time": "9", "home_scorer": "", "home_scorer_id": "", "home_assist": "", "home_assist_id": "",
+                  "score": "0 - 1", "away_scorer": "M. Tavernier", "away_scorer_id": "3819203541",
+                  "away_assist": "", "away_assist_id": "" },
+                { "time": "40", "home_scorer": "A. Isak", "home_scorer_id": "1001", "home_assist": "B. Bruno",
+                  "home_assist_id": "1002", "score": "1 - 1", "away_scorer": "", "away_scorer_id": "",
+                  "away_assist": "", "away_assist_id": "" }
+              ],
               "lineup": {
                 "home": { "coach": [ { "lineup_player": "Arne Slot" } ] },
                 "away": { "coach": [ { "lineup_player": "David Moyes" } ] }
@@ -50,6 +58,22 @@ class MatchDtoTest {
                 .isEqualTo("Arne Slot");
         assertThat(dto.getMatchLineup().getAwayLineUp().getCoaches().get(0).getLineupPlayer())
                 .isEqualTo("David Moyes");
+    }
+
+    /** Phase 3 of the player one-liner joins goals to players on these ids (plan §4.4). */
+    @Test
+    @DisplayName("the four scorer and assist ids on a goal bind")
+    void bindsTheGoalscorerIds() {
+        MatchDto dto = JsonFixtures.parse(PAYLOAD, MatchDto.class);
+
+        GoalscorerItem away = dto.getGoalscorer().get(0);
+        assertThat(away.getAwayScorerId()).isEqualTo("3819203541");
+        assertThat(away.getAwayAssistId()).isEmpty();
+        assertThat(away.getHomeScorerId()).isEmpty();
+
+        GoalscorerItem home = dto.getGoalscorer().get(1);
+        assertThat(home.getHomeScorerId()).isEqualTo("1001");
+        assertThat(home.getHomeAssistId()).isEqualTo("1002");
     }
 
     @Test

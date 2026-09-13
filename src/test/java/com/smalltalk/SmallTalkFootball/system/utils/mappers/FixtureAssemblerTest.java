@@ -355,6 +355,35 @@ class FixtureAssemblerTest {
         }
 
         @Test
+        void carriesTheScorerAndAssistIdsOntoTheGoal() {
+            List<Goal> goals = assembler.assembleFromFullMatch(
+                    MatchDtoJson.finishedMatch()
+                            .homeGoal("12", "Salah", "1 - 0").lastGoalIds("1001", "1002")
+                            .awayGoal("55", "Calvert-Lewin", "1 - 1").lastGoalIds("2001", null)
+                            .build())
+                    .getGoals();
+
+            assertThat(goals.get(0).getScorerId()).isEqualTo("1001");
+            assertThat(goals.get(0).getAssistId()).isEqualTo("1002");
+            assertThat(goals.get(1).getScorerId()).isEqualTo("2001");
+        }
+
+        /** The feed sends "" for an id it does not know; that must land as null, not a blank. */
+        @Test
+        void aBlankIdLandsAsNull() {
+            List<Goal> goals = assembler.assembleFromFullMatch(
+                    MatchDtoJson.finishedMatch()
+                            .homeGoal("12", "Salah", "1 - 0").lastGoalIds(null, null)
+                            .homeGoal("40", "Gakpo", "2 - 0")
+                            .build())
+                    .getGoals();
+
+            assertThat(goals.get(0).getScorerId()).isNull();
+            assertThat(goals.get(0).getAssistId()).isNull();
+            assertThat(goals.get(1).getScorerId()).isNull();
+        }
+
+        @Test
         void hasNoGoalsWhenTheGoalListIsAbsent() {
             Fixture fixture = assembler.assembleFromFullMatch(
                     MatchDtoJson.finishedMatch().nullGoals().build());

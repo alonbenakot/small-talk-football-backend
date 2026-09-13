@@ -126,6 +126,8 @@ public class FixtureAssembler {
         TeamType teamType = determineTeamType(goalDto);
         String goalBy = getGoalBy(goalDto, teamType);
         String assistBy = getAssistBy(goalDto, teamType);
+        String scorerId = blankToNull(teamType == TeamType.HOME ? goalDto.getHomeScorerId() : goalDto.getAwayScorerId());
+        String assistId = blankToNull(teamType == TeamType.HOME ? goalDto.getHomeAssistId() : goalDto.getAwayAssistId());
         String teamName = getTeamName(matchDto, teamType);
 
         String rawScore = goalDto.getScore().replace("[", "").replace("]", "");
@@ -137,11 +139,17 @@ public class FixtureAssembler {
                 .minute(mapMinute(goalDto))
                 .goalBy(goalBy)
                 .assistBy(assistBy)
+                .scorerId(scorerId)
+                .assistId(assistId)
                 .teamName(teamName)
                 .homeScore(homeScore)
                 .awayScore(awayScore)
                 .teamType(teamType)
                 .build();
+    }
+
+    private static String blankToNull(String id) {
+        return id == null || id.isBlank() ? null : id;
     }
 
     private int mapMinute(GoalscorerItem goalDto) {

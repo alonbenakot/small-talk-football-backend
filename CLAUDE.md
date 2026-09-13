@@ -68,6 +68,10 @@ when adding endpoints.
 Two `ObjectMapper` beans exist (`ObjectMapperConfig`): the `@Primary` one is `LOWER_CAMEL_CASE` for our own API,
 and the `@Qualifier("apiClient")` one is `SNAKE_CASE` and must be used for anything deserialized from apifootball.
 
+Every apifootball response shape the app reads — live JSON samples, which fields each DTO binds, and the traps
+in each endpoint — is documented in [`.claude/docs/football-api-responses.md`](.claude/docs/football-api-responses.md). Read it
+before adding or changing a DTO; it is more accurate than the published apifootball documentation.
+
 The `Competition` enum is the whitelist of tracked leagues, mapping our names to apifootball league ids. Adding a
 competition here automatically widens fixture, standings, and team fetching, since those all iterate
 `Competition.values()`.
@@ -143,3 +147,9 @@ packaged jar. Info files carry per-language variants (`AMERICAN`, `BRITISH`, `HE
 - Mappers implement the shared `Mapper<S, T>` interface and are injected by `@Qualifier` name, since several
   implementations share the interface.
 - CORS origins are hard-coded in `WebConfig` (production domains plus `http://localhost:5173`).
+
+## Coding Standards
+
+- Use latest versions of libraries and idiomatic approaches as of today.
+- Keep it simple - NEVER over-engineer, ALWAYS simplify, NO unnecessary defensive programming. No extra
+  features - focus on simplicity.

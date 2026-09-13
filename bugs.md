@@ -20,7 +20,7 @@ are marked "by inspection" because nothing automated covers them.
 | 8 | Low | One malformed league id aborts a whole refresh |
 | 9 | Low | Builder-made `Fixture` cannot accept a one-liner |
 | 10 | Low | Expired tokens throw instead of validating to `false` |
-| 11 | Medium | A player who leaves the tracked leagues is never deleted |
+| 11 | ~~Medium~~ | ~~A player who leaves the tracked leagues is never deleted~~ — **fixed** |
 
 ---
 
@@ -263,7 +263,22 @@ to something that does not read as a total predicate.
 
 ---
 
-## 11. A player who leaves the tracked leagues is never deleted — Medium *(by inspection, not covered by a test)*
+## 11. A player who leaves the tracked leagues is never deleted — Medium — FIXED
+
+**Fixed (2026-09-13, player one-liner Phase 1):** `savePlayers` now queues one `bulk.remove` of every stored
+player of the team whose `_id` is not in the payload, in the same bulk as the writes. It runs only from the
+domestic-league call (never `CHAMPIONS_LEAGUE` / `WORLD_CUP`, so two competitions refreshing one club cannot
+delete each other's players), is skipped with a warning when the payload is smaller than half the stored squad
+(a truncated response, not a real squad change), and is skipped along with the write for an empty payload.
+Pinned by `TeamDataServiceTest.SavingTeams` — `removesStoredPlayersAbsentFromThePayload`,
+`keepsTheStoredSquadWhenThePayloadIsLessThanHalfItsSize`, `removesNobodyFromAChampionsLeagueRefresh`,
+`writesNothingAndRemovesNobodyForATeamWithNoSquad`.
+
+**Remaining Low-severity residue, deliberately out of scope:** a whole club dropping out of the tracked leagues
+(relegation to an untracked one) keeps its players, because no refresh ever names that `teamId` again. That is a
+`TeamData`-level reconciliation.
+
+*Original entry follows.*
 
 **Where:** `services/TeamDataService.java`, `savePlayers`, reached from `saveCompetitionTeams`
 

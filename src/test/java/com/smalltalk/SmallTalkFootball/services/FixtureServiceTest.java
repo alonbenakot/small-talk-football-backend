@@ -251,6 +251,25 @@ class FixtureServiceTest {
     void deletingAllFixturesClearsTheCollection() {
         service.deleteAllFixtures();
 
+        verify(repository).deleteAll();
+    }
+
+    /**
+     * The by-team lookups behind the team one-liner. The derived query names themselves have
+     * no integration coverage here — there are no MongoDB tests in this project and a
+     * mis-resolved nested path returns empty rather than failing — so what these pin is the
+     * service's half: the same id on both sides of the Or, and the sort direction.
+     */
+    @Nested
+    class ByTeamLookups {
+
+        @Captor
+        private ArgumentCaptor<Sort> sort;
+
+        private Fixture playedAt(String id, Instant when) {
+            return TestFixtures.finishedFixture().id(id).matchDateTime(when).build();
+        }
+
         @Test
         void asksForFinishedFixturesOnEitherSideOfTheTieNewestFirst() {
             when(repository.findByFinishedTrueAndHomeTeamIdOrFinishedTrueAndAwayTeamId(
@@ -287,25 +306,6 @@ class FixtureServiceTest {
             assertThat(service.getNextFixtureForTeam("2621")).contains(next);
 
             verify(repository).findByFinishedFalseAndHomeTeamIdOrFinishedFalseAndAwayTeamId(
-
-        verify(repository).deleteAll();
-    }
-
-    /**
-     * The by-team lookups behind the team one-liner. The derived query names themselves have
-     * no integration coverage here — there are no MongoDB tests in this project and a
-     * mis-resolved nested path returns empty rather than failing — so what these pin is the
-     * service's half: the same id on both sides of the Or, and the sort direction.
-     */
-    @Nested
-    class ByTeamLookups {
-
-        @Captor
-        private ArgumentCaptor<Sort> sort;
-
-        private Fixture playedAt(String id, Instant when) {
-            return TestFixtures.finishedFixture().id(id).matchDateTime(when).build();
-        }
                     eq("2621"), eq("2621"), sort.capture());
             assertThat(sort.getValue()).isEqualTo(Sort.by(Sort.Direction.ASC, "matchDateTime"));
         }

@@ -67,4 +67,9 @@ public class PromptBuilderFactory {
         return new TeamOneLinerPromptBuilder(context, language, perspective);
     }
 
+    /** The player-flavoured variant; like the team overload it fetches nothing. */
+    public PromptBuilder create(PlayerPromptContext context, Language language) {
+        return new PlayerOneLinerPromptBuilder(context, language);
+    }
+
 }

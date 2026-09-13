@@ -1,7 +1,11 @@
 package com.smalltalk.SmallTalkFootball.services;
 
 import com.smalltalk.SmallTalkFootball.domain.PlayerData;
+import com.smalltalk.SmallTalkFootball.models.PlayerSummary;
+import com.smalltalk.SmallTalkFootball.models.SquadContext;
 import com.smalltalk.SmallTalkFootball.repositories.PlayerDataRepository;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
+import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,12 +36,46 @@ public class PlayerDataService {
 
     static final int NOTABLE_PLAYER_COUNT = 10;
     private static final int PER_POSITION_CAP = 4;
-    private static final String GOALKEEPERS = "Goalkeepers";
+    private static final List<String> POSITION_ORDER = List.of("Goalkeepers", "Defenders", "Midfielders", "Forwards");
 
     private final PlayerDataRepository repository;
 
     public List<PlayerData> getPlayersByTeam(String teamId) {
         return repository.findByTeamId(teamId);
+    }
+
+    /** A full document replace, which is fine: the caller just loaded the whole document, one-liners included. */
+    public PlayerData save(PlayerData player) {
+        return repository.save(player);
+    }
+
+    /** A 404 rather than a 500: the id is user-supplied through the player one-liner route. */
+    public PlayerData getPlayerById(String id) throws NotFoundException {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException(Messages.NO_PLAYER_FOUND.formatted(id)));
+    }
+
+    /** The picker list, ordered by position bucket then shirt number so it reads like a squad list. */
+    public List<PlayerSummary> getSquadSummaries(String teamId) {
+        return repository.findByTeamId(teamId).stream()
+                .sorted(Comparator.comparingInt(PlayerDataService::positionOrder)
+                        .thenComparingInt(PlayerDataService::shirtNumber))
+                .map(PlayerSummary::from)
+                .toList();
+    }
+
+    private static int positionOrder(PlayerData player) {
+        int index = player.getPosition() == null ? -1 : POSITION_ORDER.indexOf(player.getPosition());
+        return index < 0 ? POSITION_ORDER.size() : index;
+    }
+
+    /** Shirt numbers are strings in the feed and blank for some squad members; those sort last. */
+    private static int shirtNumber(PlayerData player) {
+        try {
+            return Integer.parseInt(player.getNumber());
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 
     public List<PlayerData> getNotablePlayers(String teamId) {
@@ -46,7 +84,7 @@ public class PlayerDataService {
             return List.of();
         }
 
-        PlayerData keeper = firstChoiceKeeper(squad);
+        PlayerData keeper = SquadContext.firstChoiceKeeper(squad);
 
         int maxAppearances = squad.stream()
                 .filter(PlayerDataService::hasPlayed)
@@ -85,13 +123,6 @@ public class PlayerDataService {
 
     private static boolean hasPlayed(PlayerData player) {
         return player.getMatchesPlayed() != null && player.getMatchesPlayed() > 0;
-    }
-
-    private static PlayerData firstChoiceKeeper(List<PlayerData> squad) {
-        return squad.stream()
-                .filter(player -> GOALKEEPERS.equalsIgnoreCase(player.getPosition()))
-                .max(Comparator.comparingInt(player -> nz(player.getMatchesPlayed())))
-                .orElse(null);
     }
 
     private static double score(PlayerData player, int maxAppearances) {
