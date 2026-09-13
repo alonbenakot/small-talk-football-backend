@@ -14,6 +14,15 @@ public class AiService {
 
     private final ChatModel client;
 
+    /**
+     * The cards render a sentence on one line, but the model happily returns two, split on a
+     * hard newline with trailing spaces. Collapsing every whitespace run to a single space is
+     * cheaper and more reliable than asking the prompt not to do it.
+     */
+    public static String singleLine(String text) {
+        return text == null ? null : text.strip().replaceAll("\\s+", " ");
+    }
+
     public String generate(String promptText) {
         try {
             var options = OpenAiChatOptions.builder()

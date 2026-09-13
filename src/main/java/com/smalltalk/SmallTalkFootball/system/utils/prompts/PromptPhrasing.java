@@ -5,6 +5,7 @@ import com.smalltalk.SmallTalkFootball.domain.TeamData;
 import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.WinLossDraw;
 
 import java.util.List;
@@ -56,5 +57,31 @@ final class PromptPhrasing {
                             result);
                 })
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * Home or away is decided on team ids, never names: {@code TeamData.name} and the name on
+     * a {@code Fixture} come from different apifootball endpoints and disagree ("Manchester
+     * United" vs "Manchester Utd"). A name comparison silently inverts the venue and then
+     * names the team as its own opponent.
+     */
+    static String phraseNextFixture(Fixture next, String teamId) {
+        if (next == null) {
+            return "  No upcoming fixture scheduled.";
+        }
+        boolean atHome = next.getHomeTeam() != null && teamId != null
+                && teamId.equals(next.getHomeTeam().getId());
+        String opponent = atHome
+                ? nameOf(next.getAwayTeam())
+                : nameOf(next.getHomeTeam());
+        return "  %s %s (%s), %s".formatted(
+                atHome ? "at home to" : "away at",
+                opponent,
+                next.getCompetition(),
+                next.getMatchDateTime());
+    }
+
+    private static String nameOf(Team team) {
+        return team == null || team.getName() == null ? "an unnamed opponent" : team.getName();
     }
 }

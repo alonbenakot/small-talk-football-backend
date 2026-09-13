@@ -1,5 +1,8 @@
 package com.smalltalk.SmallTalkFootball.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.smalltalk.SmallTalkFootball.enums.Language;
+import com.smalltalk.SmallTalkFootball.models.PlayerOneLiner;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -7,6 +10,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * One player, in its own collection rather than embedded on {@link TeamData}: the next
@@ -91,4 +99,39 @@ public class PlayerData {
 
     /** League scoring-charts place from {@code get_topscorers}; null when unranked. */
     private Integer leagueScorerRank;
+
+    /**
+     * Cached player one-liners, one per language. The squad refresh never writes this field
+     * ({@code TeamDataService.FIELDS_NOT_REFRESHED}), which is what lets it survive the
+     * twice-weekly {@code $set} upsert. {@code @Builder.Default} is load-bearing: without it a
+     * builder-made player carries a null set and {@link #addOneLiner} would throw.
+     */
+    @JsonIgnore
+    @Builder.Default
+    private Set<PlayerOneLiner> oneLiners = new HashSet<>();
+
+    public Set<PlayerOneLiner> getOneLiners() {
+        return oneLiners == null ? Collections.emptySet()
+                : Collections.unmodifiableSet(oneLiners);
+    }
+
+    public Optional<PlayerOneLiner> findOneLiner(Language language) {
+        return getOneLiners().stream()
+                .filter(oneLiner -> oneLiner.getLanguage() == language)
+                .findAny();
+    }
+
+    /** Add a one-liner only if none exists yet for this language. */
+    public boolean addOneLiner(PlayerOneLiner oneLiner) {
+        return oneLiners.add(oneLiner);
+    }
+
+    /**
+     * Replace any existing one-liner for this language. Regeneration must use this: equality
+     * ignores the text, so {@code add} alone would be a silent no-op.
+     */
+    public void replaceOneLiner(PlayerOneLiner oneLiner) {
+        oneLiners.remove(oneLiner);
+        oneLiners.add(oneLiner);
+    }
 }

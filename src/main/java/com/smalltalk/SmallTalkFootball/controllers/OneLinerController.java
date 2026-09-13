@@ -5,8 +5,10 @@ import com.smalltalk.SmallTalkFootball.enums.Language;
 import com.smalltalk.SmallTalkFootball.enums.Perspective;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.OneLiner;
+import com.smalltalk.SmallTalkFootball.models.PlayerSmallTalk;
 import com.smalltalk.SmallTalkFootball.models.TeamSmallTalk;
 import com.smalltalk.SmallTalkFootball.services.OneLinersService;
+import com.smalltalk.SmallTalkFootball.services.PlayerOneLinersService;
 import com.smalltalk.SmallTalkFootball.services.TeamOneLinersService;
 import com.smalltalk.SmallTalkFootball.system.SmallTalkResponse;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
@@ -22,6 +24,8 @@ public class OneLinerController {
     private final OneLinersService service;
 
     private final TeamOneLinersService teamService;
+
+    private final PlayerOneLinersService playerService;
 
     @GetMapping("/{fixtureId}")
     @ResponseStatus(HttpStatus.OK)
@@ -44,5 +48,14 @@ public class OneLinerController {
                                                             @RequestParam(required = false) Competition competition)
             throws SmallTalkException {
         return new SmallTalkResponse<>(teamService.getTeamSmallTalk(teamId, competition, lang, perspective));
+    }
+
+    /** Same reasoning as the team route: two segments, under {@code /one-liners}, so it stays public. */
+    @GetMapping("/players/{playerId}")
+    @ResponseStatus(HttpStatus.OK)
+    public SmallTalkResponse<PlayerSmallTalk> getPlayerOneLiner(@PathVariable String playerId,
+                                                                @RequestParam Language lang)
+            throws SmallTalkException {
+        return new SmallTalkResponse<>(playerService.getPlayerSmallTalk(playerId, lang));
     }
 }

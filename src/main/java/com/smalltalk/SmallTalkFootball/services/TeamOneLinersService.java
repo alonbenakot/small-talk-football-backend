@@ -113,7 +113,7 @@ public class TeamOneLinersService {
                 .language(lang)
                 .competition(competition)
                 .perspective(perspective)
-                .text(singleLine(aiService.generate(promptBuilder.buildPrompt())))
+                .text(AiService.singleLine(aiService.generate(promptBuilder.buildPrompt())))
                 .generatedAt(Instant.now())
                 .positionAtGeneration(standing == null ? null : standing.getPosition())
                 .pointsAtGeneration(standing == null ? null : standing.getPoints())
@@ -128,21 +128,10 @@ public class TeamOneLinersService {
     }
 
     /**
-     * The card renders the sentence on one line, but the model happily returns two, split on a
-     * hard newline with trailing spaces. Collapsing every whitespace run to a single space is
-     * cheaper and more reliable than asking the prompt not to do it.
-     */
-    private static String singleLine(String text) {
-        return text == null ? null : text.strip().replaceAll("\\s+", " ");
-    }
-
-    /**
      * Picks the competition the sentence is about (plan §6.3): the requested one when it is
-     * present, otherwise the team's domestic league — the entry that is neither the Champions
-     * League nor the World Cup — and the most-played of those if there is still a choice.
-     * <p>
-     * A national side is rejected rather than answered: league position is meaningless for
-     * one, and the alternative is a confidently wrong sentence.
+     * present, otherwise the team's primary competition. A national side is rejected rather
+     * than answered: league position is meaningless for one, and the alternative is a
+     * confidently wrong sentence.
      */
     private Competition resolveCompetition(TeamData team, Competition requested) throws SmallTalkException {
         Map<Competition, Standing> standings = team.getStandings();
@@ -152,31 +141,10 @@ public class TeamOneLinersService {
             return requested;
         }
 
-        List<Competition> candidates = standings == null ? List.of() : standings.keySet().stream()
-                .filter(competition -> competition != Competition.WORLD_CUP)
-                .toList();
-
-        if (candidates.isEmpty()) {
+        return team.primaryCompetition().orElseThrow(() -> {
             log.info("Team {} has no standing outside the World Cup; rejecting the one-liner request", team.getId());
-            throw new SmallTalkException(Messages.TEAM_HAS_NO_LEAGUE_STANDING);
-        }
-
-        List<Competition> domestic = candidates.stream()
-                .filter(competition -> competition != Competition.CHAMPIONS_LEAGUE)
-                .toList();
-
-        return mostPlayed(team, domestic.isEmpty() ? candidates : domestic);
-    }
-
-    private static Competition mostPlayed(TeamData team, List<Competition> candidates) {
-        return candidates.stream()
-                .max(Comparator.comparingInt(competition -> playedMatches(team, competition)))
-                .orElseThrow();
-    }
-
-    private static int playedMatches(TeamData team, Competition competition) {
-        Standing standing = standing(team, competition);
-        return standing == null || standing.getPlayedMatches() == null ? 0 : standing.getPlayedMatches();
+            return new SmallTalkException(Messages.TEAM_HAS_NO_LEAGUE_STANDING);
+        });
     }
 
     private static Standing standing(TeamData team, Competition competition) {

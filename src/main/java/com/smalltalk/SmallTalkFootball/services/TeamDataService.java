@@ -15,10 +15,12 @@ import com.smalltalk.SmallTalkFootball.repositories.TeamDataRepository;
 import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import com.smalltalk.SmallTalkFootball.system.utils.mappers.Mapper;
+import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.BulkOperations;
-import org.springframework.data.mongodb.core.FindAndReplaceOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -29,7 +31,16 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class TeamDataService {
+
+    /**
+     * Fields on {@link PlayerData} that the squad refresh never writes, so a {@code $set}
+     * upsert leaves them exactly as they are. {@code _id} is set by the upsert query;
+     * {@code oneLiners} is the player one-liner cache, which only its own service writes.
+     */
+    private static final Set<String> FIELDS_NOT_REFRESHED = Set.of("_id", "oneLiners");
+
     private final TeamDataRepository repository;
 
     private final MongoTemplate mongoTemplate;
@@ -73,7 +84,7 @@ public class TeamDataService {
 
                 mongoTemplate.upsert(query, update, TeamData.class);
 
-                savePlayers(teamDto, scorerRankByPlayerId);
+                savePlayers(teamDto, scorerRankByPlayerId, competition);
             });
 
         });
@@ -105,25 +116,72 @@ public class TeamDataService {
      * hosted database — almost all of it latency, since the whole job makes only fourteen calls
      * to apifootball.
      * <p>
-     * A replace on {@code _id} is what {@code save} already did, so the write itself is
-     * unchanged. The empty check matters: national teams come back with no squad at all, and
-     * {@code execute()} rejects a bulk holding no operations.
+     * Each player is an upsert with {@code $set} of the mapped fields rather than a replace, so
+     * anything the mapper does not produce ({@link #FIELDS_NOT_REFRESHED}) survives the refresh.
+     * The converter omits null values, so a field that went from a value to null (a scorer rank
+     * that dropped out of the charts) is explicitly {@code $unset} — otherwise {@code $set}
+     * would leave last week's value in place.
+     * <p>
+     * The same bulk removes every stored player of this team who is not in the payload — a
+     * player who left the tracked leagues would otherwise keep his {@code teamId} forever
+     * (bug #11). The removal only runs from the domestic-league call, so two competitions
+     * refreshing the same club cannot delete each other's players, and it is skipped when the
+     * payload is smaller than half the stored squad, since that is what a truncated response
+     * looks like. The empty check matters twice over: national teams come back with no squad
+     * at all, {@code execute()} rejects a bulk holding no operations, and an empty payload must
+     * never be read as "everyone left".
      */
-    private void savePlayers(TeamDataDto teamDto, Map<String, Integer> scorerRankByPlayerId) {
+    private void savePlayers(TeamDataDto teamDto, Map<String, Integer> scorerRankByPlayerId, Competition competition) {
         List<PlayerData> players = playerDataMapper.map(teamDto);
         if (players.isEmpty()) {
             return;
         }
 
+        MongoPersistentEntity<?> entity = mongoTemplate.getConverter().getMappingContext()
+                .getRequiredPersistentEntity(PlayerData.class);
+
         BulkOperations bulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, PlayerData.class);
         players.forEach(player -> {
             player.setLeagueScorerRank(scorerRankByPlayerId.get(player.getId()));
-            bulk.replaceOne(
-                    Query.query(Criteria.where("_id").is(player.getId())),
-                    player,
-                    FindAndReplaceOptions.options().upsert());
+
+            Document mapped = new Document();
+            mongoTemplate.getConverter().write(player, mapped);
+            Update update = new Update();
+            mapped.forEach((field, value) -> {
+                if (!FIELDS_NOT_REFRESHED.contains(field)) {
+                    update.set(field, value);
+                }
+            });
+            entity.forEach(property -> {
+                String field = property.getFieldName();
+                if (!mapped.containsKey(field) && !FIELDS_NOT_REFRESHED.contains(field)) {
+                    update.unset(field);
+                }
+            });
+
+            bulk.upsert(Query.query(Criteria.where("_id").is(player.getId())), update);
         });
+
+        if (isDomesticLeague(competition)) {
+            removeDepartedPlayers(bulk, teamDto, players);
+        }
         bulk.execute();
+    }
+
+    private void removeDepartedPlayers(BulkOperations bulk, TeamDataDto teamDto, List<PlayerData> players) {
+        String teamId = teamDto.getTeamKey();
+        long stored = mongoTemplate.count(Query.query(Criteria.where("teamId").is(teamId)), PlayerData.class);
+        if (players.size() * 2L < stored) {
+            log.warn("Squad for team {} came back with {} players against {} stored; keeping the stored ones",
+                    teamId, players.size(), stored);
+            return;
+        }
+        List<String> writtenIds = players.stream().map(PlayerData::getId).toList();
+        bulk.remove(Query.query(Criteria.where("teamId").is(teamId).and("_id").nin(writtenIds)));
+    }
+
+    private static boolean isDomesticLeague(Competition competition) {
+        return competition != Competition.CHAMPIONS_LEAGUE && competition != Competition.WORLD_CUP;
     }
 
     private static Integer parsePlace(String place) {
@@ -174,6 +232,14 @@ public class TeamDataService {
     public TeamData getTeamById(String id) throws NotFoundException {
         return repository.findById(id)
                 .orElseThrow(() -> new NotFoundException(Messages.NO_TEAM_FOUND.formatted(id)));
+    }
+
+    /**
+     * The null-tolerant twin of {@link #getTeamById}: a player whose club no longer resolves
+     * should still get a sentence about himself, not a 404 about his team (plan §8).
+     */
+    public Optional<TeamData> findTeamById(String id) {
+        return repository.findById(id);
     }
 
     public Fixture enrichTeamsData(Fixture fixture, List<TeamData> teamDataList) {

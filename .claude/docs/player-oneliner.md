@@ -36,7 +36,7 @@ same list organised by component, not a separate stage of work. Conventions live
 JUnit/Mockito with no Spring context wherever possible, `@WebMvcTest` with `excludeFilters` for controllers,
 `JsonFixtures.parse` for anything deserialised from apifootball. Run `./mvnw test` (~15s, no Docker or network).
 
-### Phase 1 — Ingestion changes and player lookup (steps 1–4)
+### Phase 1 — Ingestion changes and player lookup (steps 1–4) — ✅ DONE (2026-09-13)
 
 Nothing AI-shaped here. It changes the one write path this feature depends on, and answers the question the
 feature title takes for granted: *how does a user select a player at all?* Today nothing exposes `playerData`
@@ -68,8 +68,10 @@ over HTTP.
 **Done when:** the suite is green, a real `POST /teams` still completes in the same order of time as before (the
 `$set` write must not regress the bulk-write performance of commit `939a5bf`), and `GET /players/teams/2611`
 lists a squad against a real database.
+✅ Suite green at 407 tests (+14). The two live checks are still owed — no credentials were in the Phase 1
+shell; see the Phase 1 handoff notes at the end of this document.
 
-### Phase 2 — The one-liner (steps 5–7)
+### Phase 2 — The one-liner (steps 5–7) — ✅ DONE (2026-09-13)
 
 The core. The traps here are the two the team feature already paid for once: a `Set` whose equality ignores its
 text, and a builder-created collection with no `@Builder.Default`.
@@ -102,6 +104,8 @@ text, and a builder-created collection with no `@Builder.Default`.
 
 **Done when:** the suite is green and the endpoint returns a cached sentence on the second call and a fresh one
 after the underlying stats move.
+✅ Suite green at 461 tests (+54). The live check of the endpoint is still owed, along with Phase 1's two — see
+the Phase 2 handoff notes at the end of this document.
 
 ### Phase 3 — Recent contributions from our own fixtures (step 8)
 
@@ -833,3 +837,152 @@ place a stat appears outside the card. Cheaper to leave it out until asked for.
 - Start Phase 1 at step 2 (`savePlayers`); step 1 is already closed.
 - Every apifootball response shape the app uses, with live samples and the traps in each, is in
   `docs/football-api-responses.md`. Read it instead of making exploratory calls.
+
+---
+
+## Phase 1 handoff notes (for the Phase 2 session)
+
+Phase 1 is complete on `feature/player-oneliner`; the suite is green at **407 tests** (+14). Nothing here is
+AI-shaped; what changed is the ingestion write path and the player lookup.
+
+### Step 2 — `savePlayers` (`TeamDataService`)
+
+- The per-player write is now `bulk.upsert(Query on _id, Update)` where the `Update` is a `$set` of every key
+  the mapping converter produces for the `PlayerData` (via `mongoTemplate.getConverter().write`), except `_id`.
+  **`Update.fromDocument` was tried first and is wrong for this** — it expects a document already in operator
+  form and puts plain keys at the top level of the update, so the fields are set one by one instead.
+- **Null clearing** is automatic, not a hand-maintained list: every property of the `PlayerData` persistent
+  entity (from `getConverter().getMappingContext().getRequiredPersistentEntity`) that is missing from the
+  converted document gets `update.unset(field)`. A new field on `PlayerData` is therefore cleared correctly
+  with no further change — **unless it is one the refresh must leave alone**, in which case it goes in
+  `FIELDS_NOT_REFRESHED`, the one place both the `$set` and the `$unset` loops consult.
+- **For Phase 2: add `"oneLiners"` to `FIELDS_NOT_REFRESHED`** when the set lands on `PlayerData`. That is the
+  whole mechanism by which the cache survives the refresh; without it the `$unset` loop would clear the set on
+  every run. The step-5 test "a stored one-liner survives a squad refresh" pins exactly this — assert that
+  neither `$set` nor `$unset` in the captured `Update` contains `oneLiners`. Today the constant holds only
+  `_id`.
+- `savePlayers` gained a `Competition` parameter (the caller's loop already had it) for the domestic-only
+  removal guard.
+- The half-size guard uses `mongoTemplate.count(Query on teamId, PlayerData.class)` rather than a new
+  `countByTeamId` on `PlayerDataRepository` — `TeamDataService` already holds the template and did not need a
+  second repository, so the constructor (and every test that builds it) is unchanged. §9's "files touched" list
+  is therefore one entry shorter than planned.
+- Bug #11 is marked fixed in `bugs.md`, with the relegation residue noted there as planned.
+
+### Step 3 — `PlayerDataService`
+
+- `getPlayerById` throws `NotFoundException` with the new `Messages.NO_PLAYER_FOUND`.
+- `getSquadSummaries(teamId)` returns `List<PlayerSummary>` ordered Goalkeepers → Defenders → Midfielders →
+  Forwards → anything else, then by numeric shirt number with blank/non-numeric numbers last.
+- `PlayerSummary` is a **Java record** in `models/`, with a static `from(PlayerData)`. It serialises through
+  the `@Primary` mapper exactly as the Lombok `@Data` shapes do; a record was the smaller option for a type
+  with no behaviour. Nothing else needed `firstChoiceKeeper` yet, so it is still private — make it reusable in
+  Phase 2 when `SquadContext` needs it (§4.3).
+
+### Step 4 — `PlayerController`
+
+- `GET /players/teams/{teamId}` → `SmallTalkResponse<List<PlayerSummary>>`. No `JwtAuthFilter` change; the
+  route is pinned as public in `JwtAuthFilterTest.Open`.
+
+### Tests added (14)
+
+`TeamDataServiceTest.SavingTeams` was rewritten around the new write shape (the `replaceOne` stubs are gone;
+`expectABulkWrite(storedSquadSize)` stubs a **real `MappingMongoConverter`** on the mocked template so the
+captured `Update` can be inspected): `$set` keyed on id, null clearing, scorer-rank backfill via the update,
+absent players removed, empty payload removes nobody, half-size payload removes nobody, Champions League
+refresh removes nobody. `PlayerDataServiceTest` gained `Lookup` and `SquadSummaries`. `PlayerControllerTest`
+is new. `JwtAuthFilterTest.Open` has the new route.
+
+### Also in this phase — an unrelated repair
+
+`FixtureServiceTest.java` on `main` did not compile: the merge commit `16b7e06` had moved a 19-line block into
+the middle of another test (visible in `git diff f8f7f7d 16b7e06 -- <file>`). It was restored from `f8f7f7d`,
+the last commit before the merge. The "green at 393" figure in this plan predates that merge; the test tree
+could not have been run on `main` as merged.
+
+### Owed to the next session
+
+- **The two live "done when" checks** — a real `POST /teams` completing in the same order of time as before,
+  and `GET /players/teams/2611` listing a squad — were not run: `MONGODB_URI` / `API_FOOTBALL_KEY` were not in
+  the shell. Run them at the start of Phase 2 (or the end), from a shell that has them. What to look at after
+  `POST /teams`: a player whose `leagueScorerRank` was set last week and who is now unranked should have **no**
+  `leagueScorerRank` field, and a `db.playerData.countDocuments()` should not exceed the sum of current squads.
+- Phase 2 starts at step 5 (§5): `PlayerOneLiner`, the set on `PlayerData` with `@Builder.Default` +
+  `@JsonIgnore`, and the `FIELDS_NOT_REFRESHED` entry above.
+- The Phase 1 changes are **not committed** at the time of writing this section.
+
+---
+
+## Phase 2 handoff notes (for the Phase 3 session)
+
+Phase 2 is complete on `feature/player-oneliner`; the suite is green at **461 tests** (+54).
+`GET /one-liners/players/{playerId}?lang=` exists, is public, caches on `PlayerData`, and regenerates when any
+of the four snapshot fields moves.
+
+### Step 5 — the cache
+
+- `models/PlayerOneLiner` keys on `language` only; the five snapshot fields are `@JsonIgnore`. `PlayerData`
+  gained `oneLiners` (`@Builder.Default`, `@JsonIgnore`) with `findOneLiner(lang)` / `addOneLiner` /
+  `replaceOneLiner`, mirroring `TeamData`.
+- `"oneLiners"` is in `TeamDataService.FIELDS_NOT_REFRESHED`, and `TeamDataServiceTest.SavingTeams`
+  pins that neither `$set` nor `$unset` touches it.
+- **Test-harness trap found here:** the real `MappingMongoConverter` the `SavingTeams` tests build on the mocked
+  template used a bare `MongoMappingContext`, which has no JSR-310 simple types and tried to map the
+  `Instant` inside a nested one-liner as an entity (`InaccessibleObjectException` on `java.time.Instant`).
+  The helper now registers `MongoCustomConversions` the way Boot does. Anything else that adds a
+  `java.time` field to `PlayerData` gets this for free now.
+
+### Step 6 — angle selection and the prompt
+
+- `models/SquadContext` is a record with a static `of(player, squad)`. It carries `medianAppearances` as well
+  as the §4.3 fields, because both the `INJURED` and `FRINGE` angles compare against the median and the angle
+  selection only sees the player and the context. `firstChoiceKeeper` moved here from `PlayerDataService` as
+  a public static, and `getNotablePlayers` now calls it — that is the "make it reusable" from Phase 1.
+- `PlayerAngleSelection` has **eight** angles, not the seven in §6.3: `REGULAR` sits between `EVER_PRESENT`
+  and `FRINGE`, because the table had a hole — a player on 6 of 10 appearances with no goals matched
+  nothing. It is the "plays regularly, nothing stands out, lean on the club" case. `UNUSED` is checked
+  before `EVER_PRESENT` so a squad where nobody has played does not make an unused player "ever present".
+  Thresholds are at the top of the class and in `SquadContext`, marked as starting points for Phase 4.
+- `PlayerPromptContext` has **no `recentContributions` field yet** — `MatchContribution` does not exist, and
+  a field of a type that does not exist cannot be declared. Phase 3 adds both the type and the field together,
+  and a `%s` block in `PlayerOneLinerPromptBuilder.data()` for the contribution lines.
+- `PromptPhrasing.phraseNextFixture(fixture, teamId)` was lifted out of `TeamOneLinerPromptBuilder` so both
+  builders share it; the team builder's behaviour is unchanged.
+- The data block phrases absent numbers as `not recorded` and the constraints tell the model that means
+  unknown, not zero. The examples cover the full range of angles, including the fringe and unused cases.
+
+### Step 7 — service, shapes, route
+
+- `PlayerOneLinersService.getPlayerSmallTalk(playerId, lang)` follows §8 exactly. `TeamDataService.findTeamById`
+  returns `Optional<TeamData>`; the throwing `getTeamById` is untouched.
+- `resolveCompetition` was **not** moved to a shared service: the domestic-league-most-played rule is now
+  `TeamData.primaryCompetition()` (`Optional<Competition>`), and `TeamOneLinersService` handles only the
+  "requested competition" branch and the World-Cup-only rejection on top of it. The player service uses the
+  `Optional` directly and leaves the competition null rather than throwing (§7).
+- `singleLine` is a public static on `AiService`; both one-liner services call it. It is a static rather than
+  a wrapping `generateOneLine(...)` so the existing tests that stub `aiService.generate` still exercise it.
+- `PlayerFacts` and `PlayerSmallTalk` are records in `models/`. `PlayerFacts.Season` echoes the stats flat
+  with nulls preserved; `PlayerFacts.Club` is the four-field club stub; the next fixture reuses
+  `TeamFacts.NextFixture`, whose helper now takes a team id instead of a `TeamData` so it works without a club.
+  There is **no `recentContributions` field on `PlayerFacts`** — Phase 3 adds it alongside the context field.
+- `OneLinerController` has the new route; `OneLinerControllerTest.PlayerRoute` and `JwtAuthFilterTest.Open`
+  cover it. No filter change.
+
+### Tests added (54)
+
+`PlayerOneLinerTest` (5), `PlayerDataTest` (6), `TeamDataServiceTest.leavesTheCachedOneLinersAloneOnARefresh`,
+`PlayerAngleSelectionTest` (11), `PlayerOneLinerPromptBuilderTest` (10), `PlayerOneLinersServiceTest` (16),
+`OneLinerControllerTest.PlayerRoute` (4), one `JwtAuthFilterTest.Open` row.
+
+### Owed to the next session
+
+- **Three live checks**, all needing `MONGODB_URI`, `API_FOOTBALL_KEY` and (for the third) `OPENAI_API_KEY` in
+  the shell: Phase 1's two (`POST /teams` timing and `GET /players/teams/2611`), and this phase's
+  "done when" — `GET /one-liners/players/{id}?lang=BRITISH` twice, the second call returning the same
+  `generatedAt`, then once more after editing one of the four snapshot fields on the stored document.
+  Also confirm that a real `POST /teams` after that leaves the `oneLiners` array on the document in place.
+- Phase 3 starts at step 8 (§4.4): bind the four id fields on `GoalscorerItem`, carry `scorerId` /
+  `assistId` onto `Goal`, then add `MatchContribution`, the `recentContributions` field on both
+  `PlayerPromptContext` and `PlayerFacts`, the join in `PlayerOneLinersService` over the `recentForm` list it
+  already fetches, and the contribution lines in the builder's data block.
+- The Phase 1 and Phase 2 changes are **not committed** at the time of writing this section.

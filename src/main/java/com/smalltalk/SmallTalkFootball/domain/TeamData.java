@@ -52,6 +52,28 @@ public class TeamData {
                 : Collections.unmodifiableSet(oneLiners);
     }
 
+    /**
+     * The competition a sentence about this team is about: the domestic league — the standing
+     * that is neither the Champions League nor the World Cup — and the most-played one if there
+     * is still a choice. Empty for a side with no standing outside the World Cup.
+     */
+    public Optional<Competition> primaryCompetition() {
+        List<Competition> candidates = standings == null ? List.of() : standings.keySet().stream()
+                .filter(competition -> competition != Competition.WORLD_CUP)
+                .toList();
+        List<Competition> domestic = candidates.stream()
+                .filter(competition -> competition != Competition.CHAMPIONS_LEAGUE)
+                .toList();
+
+        return (domestic.isEmpty() ? candidates : domestic).stream()
+                .max(Comparator.comparingInt(this::playedMatches));
+    }
+
+    private int playedMatches(Competition competition) {
+        Standing standing = standings.get(competition);
+        return standing == null || standing.getPlayedMatches() == null ? 0 : standing.getPlayedMatches();
+    }
+
     public Optional<TeamOneLiner> findOneLiner(Language language, Competition competition, Perspective perspective) {
         return getOneLiners().stream()
                 .filter(oneLiner -> oneLiner.getLanguage() == language
