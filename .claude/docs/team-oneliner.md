@@ -336,9 +336,12 @@ saveCompetitionTeams()                       // existing, one get_teams call per
 No new API call, no new job beyond the `TeamsJob` in §4.7. The saving of players lives inside
 `TeamDataService.saveCompetitionTeams`, next to the team upsert that is already there.
 
-`getPlayerById` / `getPlayersByName` **have been added to `FootballApiService`** (with `PlayerDto` and tests) so
-the real response shape can be checked against a live key. They are not on this feature's path — they exist for
-the player one-liner, where a single-player refresh is exactly what's wanted. `get_players` is also the only source of `player_birthdate`,
+> **Correction (2026-09-13):** an earlier revision of this section claimed `getPlayerById` / `getPlayersByName`
+> and a `PlayerDto` had been added to `FootballApiService` for the player one-liner. **They were never built** —
+> none of the three exists in the codebase. The player one-liner plan (`player-oneliner.md` §4.5) defers
+> `get_players` and does not need them.
+
+`get_players` is the only source of `player_birthdate`,
 `player_country` and `player_minutes` — none of which `get_teams` returns. Minutes aren't needed for this
 feature (§6.4 ranks without them), but a targeted per-player top-up is the route if the player one-liner wants
 them, rather than a sweep of every squad.
@@ -620,7 +623,6 @@ models/TeamFacts.java
 models/TeamSmallTalk.java
 models/Venue.java
 models/dto/PlayerItem.java                        (the players array inside get_teams)
-models/dto/PlayerDto.java                         DONE — get_players lookup, for the player one-liner
 models/dto/VenueDto.java                          (venue IS a nested object — see appendix)
 system/utils/mappers/PlayerDataMapper.java
 system/utils/prompts/TeamOneLinerPromptBuilder.java
@@ -636,7 +638,7 @@ models/dto/TeamDataDto.java                      + players, venue (nested), team
 models/dto/MatchDto.java, MatchLineup.java, LineUp.java   @JsonProperty fix for bug #3
 system/utils/mappers/TeamDataUpdateMapper.java   + venue, founded
 services/TeamDataService.java                    + save(TeamData), write PlayerData in saveCompetitionTeams
-services/FootballApiService.java                 + getTopScorers(Competition); getPlayerById/getPlayersByName DONE
+services/FootballApiService.java                 + getTopScorers(Competition)
 repositories/FixtureRepository.java              + the derived by-team queries (§4.2)
 services/FixtureService.java                     + getRecentFinishedForTeam / getNextFixtureForTeam
 system/utils/prompts/PromptBuilderFactory.java   + team overload
@@ -1203,10 +1205,11 @@ instruction the test was judged wrong and updated, and
   `TEAM_HAS_NO_LEAGUE_STANDING`, and an unknown id returns 404 with `NO_TEAM_FOUND` — both live, both in the
   `SmallTalkResponse` envelope.
 
-**A data caveat, not a bug.** apifootball returns wrong coaches for some teams — it gives Liverpool's coach as
-Andoni Iraola, and the raw `get_teams` response says so directly. The prompt repeats whatever the API says, so a
-confidently wrong coach in a sentence is a source-data problem and no amount of prompt tuning will fix it. Worth
-knowing before anyone debugs it as a prompt fault.
+**A caveat about the reviewer, not the data.** The first write-up of this smoke claimed apifootball returned a
+wrong coach for Liverpool (Andoni Iraola). It did not — Iraola was appointed Liverpool head coach on 4 June 2026,
+succeeding Arne Slot; the model reviewing the output was working from stale training data. The lesson is the
+mirror image of §6's constraints: when a sentence looks wrong, check the raw API response and a current source
+before calling it either a data fault or a prompt fault. *(Corrected 2026-09-13.)*
 
 ### Sample of the finished output
 
