@@ -216,3 +216,21 @@ planned with one deviation:
 
 Tests added (6): `TeamControllerTest` (2), `CompetitionDataControllerTest` (1), `TeamDataServiceTest.Lookup`
 (3). `JwtAuthFilterTest` moved `GET /teams` from `RequiresToken` and `RequiresAdmin` into `Open`.
+
+### Revised after review (2026-09-14): `GET /teams` returns everything, like `GET /fixtures`
+
+The owner pointed out that the FE displays fixtures from one `GET /fixtures` call that returns
+`{ competitions, fixtures }` and groups client-side, and wants the Teams page to work the same way. So the
+`?competition=` filter (§2, §3.1) was replaced before merging:
+
+- `GET /teams` takes **no parameter** and returns `TeamsResponse(List<Competition> competitions,
+  List<TeamSummary> teams)`; `TeamSummary` gained a `competition` field. Every team becomes one row per
+  standing it holds, sorted by competition (enum order, as `getFixtures` sorts) then position;
+  `competitions` is the distinct list in that order.
+- **`WORLD_CUP` rows are excluded** server-side — the one place this deviates from `getFixtures`. The team
+  one-liner refuses national teams, so listing them would put a dead end on the Teams page.
+- `TeamDataRepository.findByCompetition` is gone; `getTeams` is a `findAll` plus a flatMap over the standings
+  map, ~130 rows. No query on the map key is needed any more, so the "sort placeholder" finding above is moot.
+- Tests: `TeamDataServiceTest.Lookup` now covers the one-row-per-table shape, World Cup exclusion and a team
+  with no standings; `TeamControllerTest` checks the `{competitions, teams}` shape. Suite at **479**.
+- The handoff §1.2 describes the new shape.

@@ -60,8 +60,9 @@ endpoints.
 
 ```
 Teams page
-  competitions as tabs or sections (GET /competitions), each listing its teams in table order
-  (GET /teams?competition=…)
+  one call (GET /teams) returns the competitions and every team with its competition and table
+  position — group by competition into tabs or sections, exactly as the fixtures page does with
+  GET /fixtures; GET /competitions supplies the logos and display names for the tabs
     ↓ tap a team
 Team page
   the team one-liner at the top — fetched automatically on arrival, or on a tap; both are fine
@@ -82,8 +83,9 @@ in the payloads below link back to it.
 
 ### 1.1 `GET /competitions` — the tabs
 
-Public. Returns the tracked competitions with their display data; `competition` is the enum name the other
-endpoints take (`leagueId` is the data feed's id and is not needed by the FE):
+Public. The tracked competitions with their display data (logo, name, country) for the tab headers;
+`competition` is the enum name that matches `competitions[]` / `teams[].competition` in §1.2 (`leagueId` is
+the data feed's id and is not needed by the FE):
 
 ```json
 { "data": [
@@ -101,36 +103,40 @@ The list comes in storage order, not a display order — sort it yourself if the
 `WORLD_CUP` entry ever appears, do not offer it as a tab: national teams have no league table, and the team
 one-liner refuses them (§3, errors).
 
-### 1.2 `GET /teams?competition=PREMIER_LEAGUE` — the teams of a competition
+### 1.2 `GET /teams` — the Teams page in one call
 
-Public. `competition` is required, one of the enum values. Returns the competition's teams **in table
-order** (position ascending) — the Teams page reads like the league table for free.
+Public, no parameters. Shaped like `GET /fixtures`: `competitions` lists the competitions that have teams
+(in the app's fixed competition order), and `teams` holds **every team once per competition it has a table
+in**, ordered by competition then table position — so filtering `teams` by `competition` gives that league
+in table order, ready to render. `WORLD_CUP` is never included (national teams have no league table and the
+team one-liner refuses them).
 
-Response (three of 20 shown):
+Response (trimmed to the first rows of two competitions):
 
 ```json
 {
-  "data": [
-    { "id": "141", "name": "Arsenal FC",
-      "crest": "https://apiv3.apifootball.com/badges/141_arsenal-fc.jpg", "position": 1, "points": 12 },
-    { "id": "80", "name": "Manchester City",
-      "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg", "position": 2, "points": 12 },
-    { "id": "3119", "name": "Hull City",
-      "crest": "https://apiv3.apifootball.com/badges/3119_hull-city.jpg", "position": 3, "points": 8 }
-  ],
+  "data": {
+    "competitions": ["PREMIER_LEAGUE", "LA_LIGA", "BUNDESLIGA", "LIGAT_HA_AL", "SERIA_A", "CHAMPIONS_LEAGUE"],
+    "teams": [
+      { "id": "141", "name": "Arsenal FC", "crest": "https://apiv3.apifootball.com/badges/141_arsenal-fc.jpg",
+        "competition": "PREMIER_LEAGUE", "position": 1, "points": 12 },
+      { "id": "80", "name": "Manchester City", "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg",
+        "competition": "PREMIER_LEAGUE", "position": 2, "points": 12 },
+      "… 18 more PREMIER_LEAGUE rows, then LA_LIGA …",
+      { "id": "80", "name": "Manchester City", "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg",
+        "competition": "CHAMPIONS_LEAGUE", "position": 8, "points": 3 }
+    ]
+  },
   "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200
 }
 ```
 
-- Domestic leagues have 20 (or 18/14) teams; `CHAMPIONS_LEAGUE` has 36, one table.
-- A competition whose table is not loaded yet returns `200` with `[]`. A missing or misspelled
-  `competition` is the non-envelope Spring 400 described in §0.
+- Around 130 rows in total (five domestic leagues of 14–20 plus the 36-team Champions League); a club in
+  two tables appears twice with the same `id` and a different `competition` — key rows on `id + competition`.
 - `id` is what §2 and §3 take. `crest` is hot-linked; have a fallback.
-- Clubs in the Champions League appear under both their domestic league and `CHAMPIONS_LEAGUE`, each with
-  that table's position — the same club, the same `id`.
-- Team names here come from the standings feed and can differ slightly from the one-liner's `facts.name`
-  ("Manchester City" in both, but "Arsenal FC" here vs "Arsenal" on fixtures). Key on `id`, display
-  whichever you loaded.
+- Before standings are loaded (a fresh database) the response is `{ "competitions": [], "teams": [] }`.
+- Team names here come from the standings feed and can differ slightly from the one-liner's `facts.name` or
+  the fixture names ("Arsenal FC" here vs "Arsenal" on fixtures). Key on `id`, display whichever you loaded.
 
 ---
 

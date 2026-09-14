@@ -8,6 +8,7 @@ import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.TeamSummary;
+import com.smalltalk.SmallTalkFootball.models.TeamsResponse;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
@@ -247,36 +248,45 @@ class TeamDataServiceTest {
             assertThat(service.getTeamById("2621")).isSameAs(team);
         }
 
-        /** A two-table club reports the position of the table that was asked for. */
+        /** Shaped like getFixtures: a two-table club is one row per table, each with that table's numbers. */
         @Test
-        void listsACompetitionsTeamsWithThatTablesPositionAndPoints() {
+        void listsEveryTeamOncePerCompetitionInCompetitionThenTableOrder() {
             TeamData city = TestFixtures.teamDataWithStanding(
                     "80", "Manchester City", "Enzo Maresca", Competition.PREMIER_LEAGUE, 2, 12, 4);
             city.getStandings().put(Competition.CHAMPIONS_LEAGUE,
                     TestFixtures.standing(Competition.CHAMPIONS_LEAGUE, 8, 3, 1));
-            when(repository.findByCompetition(Competition.CHAMPIONS_LEAGUE)).thenReturn(List.of(city));
+            TeamData arsenal = TestFixtures.teamDataWithStanding(
+                    "141", "Arsenal FC", "Mikel Arteta", Competition.PREMIER_LEAGUE, 1, 12, 4);
+            when(repository.findAll()).thenReturn(List.of(city, arsenal));
 
-            assertThat(service.getTeamsByCompetition(Competition.CHAMPIONS_LEAGUE))
-                    .containsExactly(new TeamSummary("80", "Manchester City", "80-badge.png", 8, 3));
+            TeamsResponse response = service.getTeams();
+
+            assertThat(response.competitions())
+                    .containsExactly(Competition.PREMIER_LEAGUE, Competition.CHAMPIONS_LEAGUE);
+            assertThat(response.teams()).containsExactly(
+                    new TeamSummary("141", "Arsenal FC", "141-badge.png", Competition.PREMIER_LEAGUE, 1, 12),
+                    new TeamSummary("80", "Manchester City", "80-badge.png", Competition.PREMIER_LEAGUE, 2, 12),
+                    new TeamSummary("80", "Manchester City", "80-badge.png", Competition.CHAMPIONS_LEAGUE, 8, 3));
         }
 
-        /** Mongo hands the documents back in storage order; the list must read as the table. */
+        /** The team one-liner refuses national teams, so the Teams page must not offer them. */
         @Test
-        void ordersTheTeamsByTablePosition() {
-            when(repository.findByCompetition(Competition.PREMIER_LEAGUE)).thenReturn(List.of(
-                    TestFixtures.teamDataWithStanding("3086", "Brentford", "", Competition.PREMIER_LEAGUE, 6, 6, 4),
-                    TestFixtures.teamDataWithStanding("141", "Arsenal FC", "", Competition.PREMIER_LEAGUE, 1, 12, 4),
-                    TestFixtures.teamDataWithStanding("80", "Manchester City", "", Competition.PREMIER_LEAGUE, 2, 12, 4)));
+        void leavesWorldCupTeamsOut() {
+            TeamData england = TestFixtures.teamDataWithStanding(
+                    "1", "England", "Thomas Tuchel", Competition.WORLD_CUP, 1, 9, 3);
+            when(repository.findAll()).thenReturn(List.of(england));
 
-            assertThat(service.getTeamsByCompetition(Competition.PREMIER_LEAGUE))
-                    .extracting(TeamSummary::position).containsExactly(1, 2, 6);
+            TeamsResponse response = service.getTeams();
+
+            assertThat(response.competitions()).isEmpty();
+            assertThat(response.teams()).isEmpty();
         }
 
         @Test
-        void aCompetitionWithNoStandingsListsNoTeams() {
-            when(repository.findByCompetition(Competition.LA_LIGA)).thenReturn(List.of());
+        void aTeamWithNoStandingsIsNotListed() {
+            when(repository.findAll()).thenReturn(List.of(TestFixtures.teamData("2621", "Liverpool", "Arne Slot")));
 
-            assertThat(service.getTeamsByCompetition(Competition.LA_LIGA)).isEmpty();
+            assertThat(service.getTeams().teams()).isEmpty();
         }
 
         @Test
