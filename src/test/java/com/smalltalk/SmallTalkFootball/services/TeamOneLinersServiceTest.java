@@ -342,6 +342,36 @@ class TeamOneLinersServiceTest {
             assertThat(result.getFacts().getNextFixture().isHome()).isTrue();
         }
 
+        /** GET /teams/{id}: the same block, but the cache is neither read nor written. */
+        @Test
+        void factsAloneNeverTouchTheOneLinerCacheOrTheModel() throws Exception {
+            TeamData team = TestFixtures.teamDataWithStanding(
+                    TEAM_ID, TestFixtures.HOME_TEAM_NAME, "Arne Slot", Competition.PREMIER_LEAGUE, 1, 13, 5);
+            when(teamDataService.getTeamById(TEAM_ID)).thenReturn(team);
+            when(fixtureService.getNextFixtureForTeam(TEAM_ID))
+                    .thenReturn(Optional.of(TestFixtures.upcomingFixture().build()));
+
+            TeamFacts facts = service.getTeamFacts(TEAM_ID);
+
+            assertThat(facts.getPrimaryCompetition()).isEqualTo(Competition.PREMIER_LEAGUE);
+            assertThat(facts.getNextFixture().getOpponent()).isEqualTo(TestFixtures.AWAY_TEAM_NAME);
+            verifyNoInteractions(aiService, promptBuilderFactory);
+            verify(teamDataService, never()).save(any());
+        }
+
+        /** No "nothing to say" case for facts: a national side still has its standings map. */
+        @Test
+        void factsForANationalSideHaveNoPrimaryCompetition() throws Exception {
+            TeamData england = TestFixtures.teamDataWithStanding(
+                    "england", "England", "Thomas Tuchel", Competition.WORLD_CUP, 1, 9, 3);
+            when(teamDataService.getTeamById("england")).thenReturn(england);
+
+            TeamFacts facts = service.getTeamFacts("england");
+
+            assertThat(facts.getPrimaryCompetition()).isNull();
+            assertThat(facts.getStandings()).containsKey(Competition.WORLD_CUP);
+        }
+
         @Test
         void propagatesAnUnknownTeamAsANotFound() throws Exception {
             when(teamDataService.getTeamById("nope"))

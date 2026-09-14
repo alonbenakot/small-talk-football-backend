@@ -138,6 +138,20 @@ Response (trimmed to the first rows of two competitions):
 - Team names here come from the standings feed and can differ slightly from the one-liner's `facts.name` or
   the fixture names ("Arsenal FC" here vs "Arsenal" on fixtures). Key on `id`, display whichever you loaded.
 
+### 1.3 `GET /teams/{teamId}` — the team facts, no sentence
+
+Public, no parameters. `data` is exactly the `facts` object of §3 (`id`, `name`, `crest`, `coach`,
+`founded`, `venue`, `primaryCompetition`, `standings`, `recentForm`, `nextFixture`, `notablePlayers`) with
+no `oneLiner` — the same `TeamFacts` model, nothing to remap. It never reads or writes the one-liner cache
+and never calls the model, so it is safe to fire from the team loader on arrival alongside the squad, and
+the one-liner can stay tap-gated.
+
+- `notablePlayers` is included: it is a stored-squad query, not a model call, so there is nothing to save
+  by omitting it.
+- All the team's `standings` come back; `primaryCompetition` marks the main one. Unlike §3 a national side
+  is not refused — its `standings` still hold the `WORLD_CUP` entry, and `primaryCompetition` is `null`.
+- Unknown id → 404, `systemMessage.messageText = "No team was found for id: {id}"`.
+
 ---
 
 ## 2. `GET /players/teams/{teamId}` — the squad picker
@@ -412,8 +426,8 @@ the first call, a player's sentence is stable for days. Instant on repeat.
 
 1. **Teams page** — competition tabs from `GET /competitions` (skip `WORLD_CUP`); under each, the teams from
    `GET /teams?competition=` as rows or tiles in table order with crest, name, position and points.
-2. **Team page** — header with crest, name, coach. The one-liner block: fetched on arrival (recommended —
-   one call, and the user chose this page) or behind a "what do I say about them?" button; a perspective
+2. **Team page** — facts from `GET /teams/{id}` (§1.3) on arrival: header with crest, name, coach. The
+   one-liner block behind a "what do I say about them?" button (`GET /one-liners/teams/{id}`); a perspective
    toggle (`NEUTRAL` / `FAN` / `RIVAL_FAN`) and, for a club with two tables, a competition toggle. Facts
    beneath: primary standing (position, points, W-D-L), recent form as five result chips, next fixture.
    Then the squad from `GET /players/teams/{id}`, grouped by position, injured badge, dimmed rows for
