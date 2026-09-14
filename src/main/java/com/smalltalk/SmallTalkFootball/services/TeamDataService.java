@@ -8,6 +8,8 @@ import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.TeamSummary;
+import com.smalltalk.SmallTalkFootball.models.TeamsResponse;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
@@ -222,6 +224,22 @@ public class TeamDataService {
 
     public List<TeamData> getTeamsData() {
         return repository.findAll();
+    }
+
+    /**
+     * The Teams page, shaped like {@code FixtureService.getFixtures}: a team is in a competition
+     * exactly when it has a standing for it, so every team becomes one row per standing. World Cup
+     * rows are left out because the team one-liner refuses national teams.
+     */
+    public TeamsResponse getTeams() {
+        List<TeamSummary> teams = repository.findAll().stream()
+                .flatMap(team -> team.getStandings().keySet().stream()
+                        .filter(competition -> competition != Competition.WORLD_CUP)
+                        .map(competition -> TeamSummary.from(team, competition)))
+                .sorted(Comparator.comparing(TeamSummary::competition).thenComparingInt(TeamSummary::position))
+                .toList();
+        List<Competition> competitions = teams.stream().map(TeamSummary::competition).distinct().toList();
+        return new TeamsResponse(competitions, teams);
     }
 
     /**

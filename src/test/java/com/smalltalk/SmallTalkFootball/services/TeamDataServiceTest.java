@@ -7,6 +7,8 @@ import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.TeamSummary;
+import com.smalltalk.SmallTalkFootball.models.TeamsResponse;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
@@ -244,6 +246,47 @@ class TeamDataServiceTest {
             when(repository.findById("2621")).thenReturn(Optional.of(team));
 
             assertThat(service.getTeamById("2621")).isSameAs(team);
+        }
+
+        /** Shaped like getFixtures: a two-table club is one row per table, each with that table's numbers. */
+        @Test
+        void listsEveryTeamOncePerCompetitionInCompetitionThenTableOrder() {
+            TeamData city = TestFixtures.teamDataWithStanding(
+                    "80", "Manchester City", "Enzo Maresca", Competition.PREMIER_LEAGUE, 2, 12, 4);
+            city.getStandings().put(Competition.CHAMPIONS_LEAGUE,
+                    TestFixtures.standing(Competition.CHAMPIONS_LEAGUE, 8, 3, 1));
+            TeamData arsenal = TestFixtures.teamDataWithStanding(
+                    "141", "Arsenal FC", "Mikel Arteta", Competition.PREMIER_LEAGUE, 1, 12, 4);
+            when(repository.findAll()).thenReturn(List.of(city, arsenal));
+
+            TeamsResponse response = service.getTeams();
+
+            assertThat(response.competitions())
+                    .containsExactly(Competition.PREMIER_LEAGUE, Competition.CHAMPIONS_LEAGUE);
+            assertThat(response.teams()).containsExactly(
+                    new TeamSummary("141", "Arsenal FC", "141-badge.png", Competition.PREMIER_LEAGUE, 1, 12),
+                    new TeamSummary("80", "Manchester City", "80-badge.png", Competition.PREMIER_LEAGUE, 2, 12),
+                    new TeamSummary("80", "Manchester City", "80-badge.png", Competition.CHAMPIONS_LEAGUE, 8, 3));
+        }
+
+        /** The team one-liner refuses national teams, so the Teams page must not offer them. */
+        @Test
+        void leavesWorldCupTeamsOut() {
+            TeamData england = TestFixtures.teamDataWithStanding(
+                    "1", "England", "Thomas Tuchel", Competition.WORLD_CUP, 1, 9, 3);
+            when(repository.findAll()).thenReturn(List.of(england));
+
+            TeamsResponse response = service.getTeams();
+
+            assertThat(response.competitions()).isEmpty();
+            assertThat(response.teams()).isEmpty();
+        }
+
+        @Test
+        void aTeamWithNoStandingsIsNotListed() {
+            when(repository.findAll()).thenReturn(List.of(TestFixtures.teamData("2621", "Liverpool", "Arne Slot")));
+
+            assertThat(service.getTeams().teams()).isEmpty();
         }
 
         @Test

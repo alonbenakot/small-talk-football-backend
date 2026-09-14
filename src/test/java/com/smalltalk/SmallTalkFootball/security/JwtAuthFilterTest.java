@@ -90,8 +90,9 @@ class JwtAuthFilterTest {
                 "GET,/fixtures",
                 "GET,/fixtures/abc",
                 "GET,/one-liners/abc",
-                // The team small talk lives under /one-liners on purpose: /teams is admin-only
-                // in its entirety, so this pins that the route stays public.
+                // The Teams page: /teams is admin-only for every method but GET. This pins
+                // that a future filter edit cannot silently re-gate it.
+                "GET,/teams",
                 "GET,/one-liners/teams/2611",
                 "GET,/one-liners/players/659972248",
                 // The squad picker: /players matches no isJwtRequired* branch, and this pins
@@ -124,7 +125,6 @@ class JwtAuthFilterTest {
                 "POST,/articles",
                 "PATCH,/articles/publish/1",
                 "POST,/fixtures",
-                "GET,/teams",
                 "POST,/teams",
                 "PATCH,/teams/standings",
                 "DELETE,/fixtures",
@@ -177,7 +177,6 @@ class JwtAuthFilterTest {
                 "DELETE,/small-infos/1",
                 "PATCH,/articles/publish/1",
                 "PATCH,/articles/remove/1",
-                "GET,/teams",
                 "POST,/teams",
                 "PATCH,/teams/standings",
                 "POST,/fixtures"})
