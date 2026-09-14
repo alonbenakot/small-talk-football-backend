@@ -10,6 +10,7 @@ import com.smalltalk.SmallTalkFootball.models.Standing;
 import com.smalltalk.SmallTalkFootball.models.TeamFacts;
 import com.smalltalk.SmallTalkFootball.models.TeamOneLiner;
 import com.smalltalk.SmallTalkFootball.models.TeamSmallTalk;
+import com.smalltalk.SmallTalkFootball.system.exceptions.NotFoundException;
 import com.smalltalk.SmallTalkFootball.system.exceptions.SmallTalkException;
 import com.smalltalk.SmallTalkFootball.system.messages.Messages;
 import com.smalltalk.SmallTalkFootball.system.utils.prompts.PromptBuilder;
@@ -21,7 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The team one-liner: a sentence about a club plus the facts behind it. Separate from
@@ -65,6 +69,20 @@ public class TeamOneLinersService {
                 .orElseGet(() -> generate(team, target, lang, perspective, recentForm, nextFixture, notablePlayers));
 
         return new TeamSmallTalk(oneLiner, TeamFacts.from(team, target, recentForm, nextFixture, notablePlayers));
+    }
+
+    /**
+     * The facts alone, for the team page on arrival: no sentence, no cache read or write.
+     * Unlike the one-liner, a national side is not rejected — its standings map is still a
+     * fact, so {@code primaryCompetition} is simply null when there is no league to point at.
+     */
+    public TeamFacts getTeamFacts(String teamId) throws NotFoundException {
+        TeamData team = teamDataService.getTeamById(teamId);
+        return TeamFacts.from(team,
+                team.primaryCompetition().orElse(null),
+                fixtureService.getRecentFinishedForTeam(teamId, RECENT_FORM_LIMIT),
+                fixtureService.getNextFixtureForTeam(teamId).orElse(null),
+                playerDataService.getNotablePlayers(teamId));
     }
 
     private Optional<TeamOneLiner> cachedOneLiner(TeamData team, Competition competition, Language lang,

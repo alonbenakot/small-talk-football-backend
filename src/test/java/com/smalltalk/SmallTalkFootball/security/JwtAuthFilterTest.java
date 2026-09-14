@@ -93,6 +93,7 @@ class JwtAuthFilterTest {
                 // The Teams page: /teams is admin-only for every method but GET. This pins
                 // that a future filter edit cannot silently re-gate it.
                 "GET,/teams",
+                "GET,/teams/2611",
                 "GET,/one-liners/teams/2611",
                 "GET,/one-liners/players/659972248",
                 // The squad picker: /players matches no isJwtRequired* branch, and this pins
