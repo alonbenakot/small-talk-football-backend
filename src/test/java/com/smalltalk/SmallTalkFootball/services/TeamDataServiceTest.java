@@ -7,6 +7,7 @@ import com.smalltalk.SmallTalkFootball.enums.Competition;
 import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.TeamSummary;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
@@ -244,6 +245,38 @@ class TeamDataServiceTest {
             when(repository.findById("2621")).thenReturn(Optional.of(team));
 
             assertThat(service.getTeamById("2621")).isSameAs(team);
+        }
+
+        /** A two-table club reports the position of the table that was asked for. */
+        @Test
+        void listsACompetitionsTeamsWithThatTablesPositionAndPoints() {
+            TeamData city = TestFixtures.teamDataWithStanding(
+                    "80", "Manchester City", "Enzo Maresca", Competition.PREMIER_LEAGUE, 2, 12, 4);
+            city.getStandings().put(Competition.CHAMPIONS_LEAGUE,
+                    TestFixtures.standing(Competition.CHAMPIONS_LEAGUE, 8, 3, 1));
+            when(repository.findByCompetition(Competition.CHAMPIONS_LEAGUE)).thenReturn(List.of(city));
+
+            assertThat(service.getTeamsByCompetition(Competition.CHAMPIONS_LEAGUE))
+                    .containsExactly(new TeamSummary("80", "Manchester City", "80-badge.png", 8, 3));
+        }
+
+        /** Mongo hands the documents back in storage order; the list must read as the table. */
+        @Test
+        void ordersTheTeamsByTablePosition() {
+            when(repository.findByCompetition(Competition.PREMIER_LEAGUE)).thenReturn(List.of(
+                    TestFixtures.teamDataWithStanding("3086", "Brentford", "", Competition.PREMIER_LEAGUE, 6, 6, 4),
+                    TestFixtures.teamDataWithStanding("141", "Arsenal FC", "", Competition.PREMIER_LEAGUE, 1, 12, 4),
+                    TestFixtures.teamDataWithStanding("80", "Manchester City", "", Competition.PREMIER_LEAGUE, 2, 12, 4)));
+
+            assertThat(service.getTeamsByCompetition(Competition.PREMIER_LEAGUE))
+                    .extracting(TeamSummary::position).containsExactly(1, 2, 6);
+        }
+
+        @Test
+        void aCompetitionWithNoStandingsListsNoTeams() {
+            when(repository.findByCompetition(Competition.LA_LIGA)).thenReturn(List.of());
+
+            assertThat(service.getTeamsByCompetition(Competition.LA_LIGA)).isEmpty();
         }
 
         @Test

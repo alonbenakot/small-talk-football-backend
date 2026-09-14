@@ -24,6 +24,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     public static final String DELETE = "DELETE";
     public static final String PATCH = "PATCH";
     public static final String POST = "POST";
+    public static final String GET = "GET";
     private final JwtUtil jwtUtil;
     private final UserService userService;
 
@@ -89,7 +90,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return true;
         }
 
-        if (uri.startsWith("/teams")) {
+        if (isJwtRequiredTeams(uri, method)) {
             return true;
         }
         return uri.startsWith("/fixtures") && (POST.equals(method));
@@ -102,7 +103,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return DELETE.equals(method)
                 || isJwtRequiredSmallInfos(uri, method)
                 || isJwtRequiredArticles(uri, method)
-                || isJwtRequiredTeams(uri)
+                || isJwtRequiredTeams(uri, method)
                 || isJwtRequiredFixtures(uri, method);
     }
 
@@ -123,8 +124,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return uri.startsWith("/fixtures") && POST.equals(method);
     }
 
-    private static boolean isJwtRequiredTeams(String uri) {
-        return uri.startsWith("/teams");
+    /** GET /teams is the public Teams page; everything else under /teams is admin refresh work. */
+    private static boolean isJwtRequiredTeams(String uri, String method) {
+        return uri.startsWith("/teams") && !GET.equals(method);
     }
 
     private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {

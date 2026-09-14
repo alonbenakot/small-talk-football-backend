@@ -8,6 +8,7 @@ import com.smalltalk.SmallTalkFootball.enums.TeamType;
 import com.smalltalk.SmallTalkFootball.models.Goal;
 import com.smalltalk.SmallTalkFootball.models.Score;
 import com.smalltalk.SmallTalkFootball.models.Standing;
+import com.smalltalk.SmallTalkFootball.models.TeamSummary;
 import com.smalltalk.SmallTalkFootball.models.Team;
 import com.smalltalk.SmallTalkFootball.models.dto.StandingsDtoItem;
 import com.smalltalk.SmallTalkFootball.models.dto.TeamDataDto;
@@ -222,6 +223,14 @@ public class TeamDataService {
 
     public List<TeamData> getTeamsData() {
         return repository.findAll();
+    }
+
+    /** The competition's teams in table order, for the Teams page. */
+    public List<TeamSummary> getTeamsByCompetition(Competition competition) {
+        return repository.findByCompetition(competition).stream()
+                .map(team -> TeamSummary.from(team, competition))
+                .sorted(Comparator.comparingInt(TeamSummary::position))
+                .toList();
     }
 
     /**

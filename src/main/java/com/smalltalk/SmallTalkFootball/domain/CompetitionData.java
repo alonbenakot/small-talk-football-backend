@@ -1,5 +1,6 @@
 package com.smalltalk.SmallTalkFootball.domain;
 
+import com.smalltalk.SmallTalkFootball.enums.Competition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,4 +25,9 @@ public class CompetitionData {
     private String countryName;
 
     private String leagueSeason;
+
+    /** Serialised by Jackson only (Spring Data maps fields), so the FE can key its tabs on the enum name. */
+    public Competition getCompetition() {
+        return Competition.fromCode(leagueId);
+    }
 }

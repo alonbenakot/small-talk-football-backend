@@ -3,10 +3,8 @@
 Written for the React frontend's Claude Code session. It describes the backend behind three screens that have
 **no frontend yet** — a Teams page, a team page with the **team one-liner**, and a player card with the
 **player one-liner** — as one contract, so you should not need to read the backend code. Everything is live on
-`env/prod` except the one endpoint marked *planned* in §1.2 (and the `competition` field in §1.1), which has
-its own backend plan and can be built against now. Every JSON sample below was captured from a running
-backend on 2026-09-13, not typed by hand, except where a section says otherwise (two long samples are also
-trimmed where marked).
+`env/prod`. Every JSON sample below was captured from a running backend on 2026-09-13/14, not typed by hand
+(two long samples are trimmed where marked).
 
 The product idea, for context: SmallTalkFootball helps someone with no football knowledge hold a casual
 football conversation. Until now the app offered one-liners about a *match*. These two features extend the
@@ -84,45 +82,55 @@ in the payloads below link back to it.
 
 ### 1.1 `GET /competitions` — the tabs
 
-Already exists and is public. Returns the tracked competitions with their display data:
+Public. Returns the tracked competitions with their display data; `competition` is the enum name the other
+endpoints take (`leagueId` is the data feed's id and is not needed by the FE):
 
 ```json
 { "data": [
-    { "leagueId": 152, "leagueName": "Premier League", "leagueLogo": "https://apiv3.apifootball.com/badges/logo_leagues/152_premier-league.png",
+    { "leagueId": 152, "leagueName": "Premier League",
+      "leagueLogo": "https://apiv3.apifootball.com/badges/logo_leagues/152_premier-league.png",
       "countryName": "England", "leagueSeason": "2025/2026", "competition": "PREMIER_LEAGUE" },
-    { "leagueId": 302, "leagueName": "La Liga", "leagueLogo": "…/302_la-liga.png", "countryName": "Spain",
-      "leagueSeason": "2025/2026", "competition": "LA_LIGA" },
-    "…"
+    { "leagueId": 302, "leagueName": "La Liga",
+      "leagueLogo": "https://apiv3.apifootball.com/badges/logo_leagues/302_la-liga.png",
+      "countryName": "Spain", "leagueSeason": "2025/2026", "competition": "LA_LIGA" },
+    "… (6 entries: LIGAT_HA_AL, LA_LIGA, SERIA_A, CHAMPIONS_LEAGUE, PREMIER_LEAGUE, BUNDESLIGA)"
   ], "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200 }
 ```
 
-> **`competition` is not live yet** — it ships with the plan in `.claude/docs/teams-by-competition.md`.
-> Today the response carries only `leagueId`; the mapping is fixed and small if you need it before then:
-> `152 PREMIER_LEAGUE · 302 LA_LIGA · 175 BUNDESLIGA · 202 LIGAT_HA_AL · 207 SERIA_A · 3 CHAMPIONS_LEAGUE ·
-> 28 WORLD_CUP`. Do not offer `WORLD_CUP` as a tab: national teams have no league table, and the team
-> one-liner refuses them (§3, errors).
+The list comes in storage order, not a display order — sort it yourself if the tab order matters. If a
+`WORLD_CUP` entry ever appears, do not offer it as a tab: national teams have no league table, and the team
+one-liner refuses them (§3, errors).
 
 ### 1.2 `GET /teams?competition=PREMIER_LEAGUE` — the teams of a competition
-
-> **Planned, not live yet** — the backend plan is `.claude/docs/teams-by-competition.md`; this section is the
-> contract it will implement, so the FE can be built against it now. The sample below is the intended shape,
-> not a capture; it will be replaced with a real one when the endpoint ships.
 
 Public. `competition` is required, one of the enum values. Returns the competition's teams **in table
 order** (position ascending) — the Teams page reads like the league table for free.
 
+Response (three of 20 shown):
+
 ```json
-{ "data": [
-    { "id": "141", "name": "Arsenal FC", "crest": "https://apiv3.apifootball.com/badges/141_arsenal-fc.jpg", "position": 1, "points": 12 },
-    { "id": "80", "name": "Manchester City", "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg", "position": 2, "points": 12 },
-    "…"
-  ], "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200 }
+{
+  "data": [
+    { "id": "141", "name": "Arsenal FC",
+      "crest": "https://apiv3.apifootball.com/badges/141_arsenal-fc.jpg", "position": 1, "points": 12 },
+    { "id": "80", "name": "Manchester City",
+      "crest": "https://apiv3.apifootball.com/badges/80_manchester-city.jpg", "position": 2, "points": 12 },
+    { "id": "3119", "name": "Hull City",
+      "crest": "https://apiv3.apifootball.com/badges/3119_hull-city.jpg", "position": 3, "points": 8 }
+  ],
+  "systemMessage": { "messageText": null, "error": false }, "jwt": null, "statusCode": 200
+}
 ```
 
-- A competition whose table is not loaded yet returns `200` with `[]`.
-- `id` is what §3 and §2 take. `crest` is hot-linked; have a fallback.
+- Domestic leagues have 20 (or 18/14) teams; `CHAMPIONS_LEAGUE` has 36, one table.
+- A competition whose table is not loaded yet returns `200` with `[]`. A missing or misspelled
+  `competition` is the non-envelope Spring 400 described in §0.
+- `id` is what §2 and §3 take. `crest` is hot-linked; have a fallback.
 - Clubs in the Champions League appear under both their domestic league and `CHAMPIONS_LEAGUE`, each with
   that table's position — the same club, the same `id`.
+- Team names here come from the standings feed and can differ slightly from the one-liner's `facts.name`
+  ("Manchester City" in both, but "Arsenal FC" here vs "Arsenal" on fixtures). Key on `id`, display
+  whichever you loaded.
 
 ---
 

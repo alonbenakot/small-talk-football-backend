@@ -1,4 +1,4 @@
-# Teams by competition — implementation plan
+# Teams by competition — implementation plan — ✅ DONE (2026-09-14)
 
 The one backend piece the frontend's Teams page needs and does not have: a public way to **list the teams of a
 competition**. The intended app flow (owner, 2026-09-13) is
@@ -193,3 +193,26 @@ No new properties, so `src/test/resources/application.properties` is untouched.
 - **Standings must be loaded** for the endpoint to return anything. On the test database they were not until
   `PATCH /teams/standings` was run in the player one-liner's Phase 4; production runs `StandingsJob` three
   times a day.
+
+---
+
+## Handoff notes
+
+Implemented on `feature/teams-by-competition`; suite green at **481 tests** (+6). Everything in §3 landed as
+planned with one deviation:
+
+- **The `sort` attribute of `@Query` does not substitute `?0`.** Against the real database the filter
+  (`standings.?0 $exists`) bound correctly — 20 Premier League, 36 Champions League, 20 La Liga clubs, the
+  right ones — but the list came back in storage order. `findByCompetition` is now unsorted and
+  `TeamDataService.getTeamsByCompetition` sorts by `TeamSummary.position`; pinned by
+  `TeamDataServiceTest.Lookup.ordersTheTeamsByTablePosition`, which hands the documents back out of order.
+- `JwtAuthFilter` gained a `GET` constant; `isJwtRequiredTeams(uri, method)` is used by both the JWT rule and
+  the admin rule, so the two cannot drift.
+- Live, after the fix: `GET /teams?competition=PREMIER_LEAGUE` → positions 1…20 in order, `CHAMPIONS_LEAGUE`
+  → 1…36; `POST /teams` without a JWT → 401; `GET /competitions` carries `"competition": "PREMIER_LEAGUE"`.
+- The handoff (`frontend-handoff-oneliners.md` §1.1, §1.2) now shows the captured samples and no longer says
+  "planned". One thing it flags for the FE: team names on this endpoint come from the standings feed and can
+  differ from the fixture/one-liner names ("Arsenal FC" vs "Arsenal") — key on `id`.
+
+Tests added (6): `TeamControllerTest` (2), `CompetitionDataControllerTest` (1), `TeamDataServiceTest.Lookup`
+(3). `JwtAuthFilterTest` moved `GET /teams` from `RequiresToken` and `RequiresAdmin` into `Open`.
